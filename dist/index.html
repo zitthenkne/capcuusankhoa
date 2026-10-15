@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fbf7ef">
+  <meta name="description" content="Sổ tay học OSCE chương 6 Cấp cứu Sản khoa: nền tảng, mô phỏng cơ chế và luyện trạm có phản hồi, đối chiếu tài liệu UMP và guideline.">
+  <title>zitthenk học Cấp cứu Sản khoa</title>
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+  <script defer src="js/course.js"></script>
+  <script defer src="js/cases.js"></script>
+  <script defer src="js/library.js"></script>
+  <script defer src="js/app.js"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Đến nội dung chính</a>
+  <header class="topbar">
+    <a class="brand" href="#/map" aria-label="zitthenk học, về bản đồ"><img src="assets/icon.svg" width="43" height="43" alt=""><span>zitthenk <i>học</i><small>SỔ TAY SẢN KHOA · Y4</small></span></a>
+    <nav aria-label="Điều hướng chính"><a href="#/map" data-nav="map">Bản đồ</a><a href="#/lab" data-nav="lab">Mô phỏng</a><a href="#/osce" data-nav="osce">Luyện OSCE</a><a href="#/sources" data-nav="sources">Tài liệu</a><button id="toc-mobile" class="nav-toc">☷ Mục lục</button></nav>
+    <div class="tools"><button id="search-open" class="icon-btn" title="Tìm trong bài học (/)" aria-label="Tìm kiếm">⌕</button><button id="sound" class="icon-btn" aria-label="Bật âm thanh" aria-pressed="false">♫</button><button id="copy" class="copy-btn">↗ <span>Link chặng này</span></button></div>
+  </header>
+  <div class="page-layout">
+    <aside class="rail" aria-label="Lộ trình học"><div class="rail-heading">CHƯƠNG <b>06</b><span>Cấp cứu<br>Sản khoa</span></div><div id="rail-links"></div><div class="rail-progress"><span>TRANG ĐÃ NẮM <b id="progress-label">0%</b></span><progress id="progress" max="100" value="0"></progress><a href="#/review">↺ Ôn câu chưa vững</a></div><button id="toc-open" class="text-btn">☷ Mở mục lục chi tiết</button></aside>
+    <main id="main" tabindex="-1"></main>
+  </div>
+  <footer class="footer"><span>Một ý mỗi bước. Hiểu cơ chế rồi mới nhớ.</span><a href="#/sources">Nguồn & phạm vi · kiểm chứng 15.10.2026</a><button id="export" class="text-btn">↓ Lưu tiến độ</button><label class="text-btn" for="import">↑ Nhập tiến độ<input id="import" type="file" accept="application/json" hidden></label></footer>
+  <dialog id="search-dialog" aria-labelledby="search-title"><div class="dialog-head"><h2 id="search-title">Bà đang tìm gì?</h2><button class="icon-btn" data-close aria-label="Đóng tìm kiếm">×</button></div><label for="search-input" class="sr-only">Tìm bài, cơ chế, thuốc hoặc tình huống</label><input id="search-input" type="search" placeholder="Thử “TXA”, “tử cung chắc”, “nhau bong non”…" autocomplete="off"><div id="search-results"></div></dialog>
+  <dialog id="toc-dialog" aria-labelledby="toc-title"><div class="dialog-head"><h2 id="toc-title">Lật đến trang…</h2><button class="icon-btn" data-close aria-label="Đóng mục lục">×</button></div><div id="toc-list"></div></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <noscript>Web cần JavaScript để chuyển bước và chạy mô phỏng. Bật JavaScript trong trình duyệt để học.</noscript>
+</body>
+</html>

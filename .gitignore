@@ -1,0 +1,5 @@
+research/
+qa/
+*.tar.gz
+*.zip
+.sites-local/
