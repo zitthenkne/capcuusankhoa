@@ -1,22 +1,19 @@
 # zitthenk học Cấp cứu Sản khoa — chương 6
 
-- [x] Xác định chương, roots và ELOs Topic 46.
-- [x] Đọc tài liệu, loại trùng SHA256/nội dung, kiểm kê phần thiếu OCR.
-- [x] Đối chiếu thông số và thuốc với nguồn chính thống, đánh dấu khác biệt cũ–mới.
-- [x] Biên soạn bài học theo chuỗi sinh lý → bệnh sinh → nhận diện → chẩn đoán → xử trí → OSCE.
-- [x] Dựng HTML/CSS/JS không build: học từng bước, SVG tương tác, bài tập, trạm OSCE, tìm kiếm, tiến độ, hash.
-- [x] Đối chiếu coverage từng mục với ELOs/bài giảng/rubric.
-- [x] Kiểm thử browser desktop/mobile, storage/hash, mô phỏng, phản hồi tự kiểm tra, đề/đáp án, liên kết.
-- [ ] Đóng gói và xuất bản private; bàn giao nguồn local.
+## Đã xong
+- [x] Gom nguồn, loại trùng, đối chiếu y khoa (research/).
+- [x] 62 màn học theo chuỗi sinh lý → bệnh sinh → nhận diện → chẩn đoán → xử trí; kiến thức Y4 đầy đủ cùng trang với hình (cột phải, mở sẵn) + trang 🧠 Thử nhớ nối bằng Tiếp.
+- [x] **Làm lại giao diện 10/2026:** sổ dán pastel mềm cho bé (font Baloo 2 + Nunito offline, nút kẹo, linh vật Giọt), màn vừa khít 1 màn hình, bản đồ lộ trình A→E.
+- [x] **Hình minh họa đúng bản chất:** 62 cảnh riêng = sơ đồ giải phẫu/sinh lý + đồ thị đổi theo điều khiển; mô phỏng nằm trong từng bước (bỏ trang Mô phỏng riêng; #/lab/* chuyển về bước tương ứng).
+- [x] **OSCE dựng lại thành trạm từng bước** (hub, học cách làm trạm, 9 trạm, tự chấm theo nhóm tiêu chí).
+- [x] Skill `so-tay-y-khoa` cập nhật luật hình/OSCE/kiểm tra (xem `~/.claude/skills/so-tay-y-khoa/references/`).
 
-## Phạm vi
+## Còn lại (vòng nâng cấp tiếp theo)
+- [ ] Đánh bóng tiếp: đã sửa badge/nhãn chồng ở ~15 hình; còn kẹt vai, lộn tử cung, vỡ tử cung, Couvelaire cần vẽ kỹ hơn.
+- [x] Chốt chương (lật thẻ tự kiểm, lật đủ mới sang chương sau) và 📌 Tra nhanh đi trực.
+- [ ] Màn mở chương (3 mục tiêu + thời gian).
+- [ ] Rà lại 100% nội dung ELOs/bài giảng so với 62 màn (bảng phủ ở tab Nguồn).
+- [ ] Đóng gói & xuất bản private (hỏi trước khi đăng).
 
-ELOs Topic 46, năng lực 17–18: sốc mất máu, nhau tiền đạo, nhau bong non, vỡ tử cung, BHSS, dự phòng BHSS. TOLAC, sinh khó do vai và thuyên tắc ối là phần đọc thêm. Checklist app là công cụ tự luyện, không thay thế rubric thi thật.
-
-## Kiến trúc
-
-Tài liệu địa phương + guideline → dữ liệu bài học có source ID → app tĩnh → tiến độ localStorage. URL hash mang vị trí học, không mang tiến độ cá nhân; xuất/nhập JSON giúp chuyển tiến độ khi đổi thiết bị.
-
-## Visual
-
-Theo skill được người dùng chỉ định: sổ dán pastel, ink #2f2a3f, nền caro kem, hồng đào/mint/lavender, nút lớn, SVG có nhãn và mô tả. Flowchart cỡ doc-wide, tối đa 7 nút mỗi sơ đồ; cơ chế phức tạp chia thành nhiều bước. Dùng sơ đồ giải phẫu tối giản, ghi rõ mô phỏng giáo dục.
+## Quy ước hình
+Mô hình định lượng chỉ là minh họa bám số trong bài (ghi “minh họa”); số guideline luôn kèm nguồn/phiên bản. Chi tiết quy tắc: skill `so-tay-y-khoa` → `references/hinh-minh-hoa.md`.
