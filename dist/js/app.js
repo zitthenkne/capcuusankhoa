@@ -6,12 +6,13 @@ const e = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&
 const plain = s => String(s || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 const norm = s => plain(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
 const md = t => e(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>'), clamp = (v, a, b) => Math.max(a, Math.min(b, v)), rand = a => a[Math.floor(Math.random() * a.length)];
-const fresh = () => ({ version: 1, done: [], answers: {}, bookmarks: [], notes: {}, rubrics: {}, last: L[0].id, sound: true });
+const fresh = () => ({ version: 1, done: [], beats: {}, answers: {}, bookmarks: [], notes: {}, rubrics: {}, last: L[0].id, sound: true });
 function sanitize(s) {
   if (!s || typeof s !== 'object' || Array.isArray(s) || s.version !== 1) throw Error('Không đúng định dạng tiến độ của sổ tay này.');
   const out = fresh();
   for (const k of ['done', 'bookmarks']) out[k] = [...new Set(Array.isArray(s[k]) ? s[k].filter(x => validIds.has(x)) : [])];
   if (validIds.has(s.last)) out.last = s.last;
+  if (s.beats && typeof s.beats === 'object' && !Array.isArray(s.beats)) for (const [k, v] of Object.entries(s.beats)) if (v === true && /^[a-z0-9-]{1,80}\/b\d{1,2}$/.test(k) && validIds.has(k.split('/')[0])) out.beats[k] = true;
   out.sound = s.sound !== false;
   if (s.answers && typeof s.answers === 'object') for (const [id, a] of Object.entries(s.answers)) if (validIds.has(id) && a && Number.isInteger(a.choice) && a.choice >= 0 && a.choice < 3) out.answers[id] = { choice: a.choice, correct: a.choice === L.find(x => x.id === id).quiz.answer, attempts: Math.min(999, Math.max(1, Number(a.attempts) || 1)) };
   for (const k of ['notes', 'rubrics']) if (s[k] && typeof s[k] === 'object' && !Array.isArray(s[k])) for (const [id, v] of Object.entries(s[k])) { if (!/^[a-z0-9_-]{1,120}$/.test(id)) continue; if (k === 'notes' && typeof v === 'string') out[k][id] = v.slice(0, 20000); if (k === 'rubrics' && Array.isArray(v)) out[k][id] = v.filter(n => Number.isInteger(n) && n >= 0 && n < 100); }
@@ -32,6 +33,8 @@ function sound(kind = 'pop') {
     else if (kind === 'chime') [523, 659, 784].forEach((f, i) => t(f, i * .1, .24));
     else if (kind === 'buzz') t(170, 0, .22, 'square', .03, 105);
     else if (kind === 'tada') [523, 659, 784, 1047].forEach((f, i) => t(f, i * .09, .32, 'triangle', .07));
+    else if (kind === 'click') { t(1900, 0, .018, 'square', .025, 700); t(420, .028, .05, 'triangle', .04, 300); }
+    else if (kind === 'page') { const n = audioCtx.createBuffer(1, audioCtx.sampleRate * .16, audioCtx.sampleRate), d = n.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2.2); const src = audioCtx.createBufferSource(), fl = audioCtx.createBiquadFilter(), g = audioCtx.createGain(); fl.type = 'bandpass'; fl.frequency.setValueAtTime(600, now); fl.frequency.exponentialRampToValueAtTime(2400, now + .15); g.gain.value = .22; src.buffer = n; src.connect(fl); fl.connect(g); g.connect(audioCtx.destination); src.start(now); }
   } catch (err) { /* âm thanh là phần thêm, không có cũng học được */ }
 }
 // kiến thức Y4 đầy đủ nhưng chia thẻ nhỏ: câu đầu luôn thấy, phần còn lại mở khi bấm
@@ -44,6 +47,13 @@ function deepCards(html, open) {
   });
   return out;
 }
+const ahaCache = {};
+
+// ───────── chú giải viết tắt: chạm/rê vào chữ gạch chấm để xem nghĩa (chỉ áp cho chữ HTML cạnh hình, không đụng chữ trong SVG)
+const GLOSS = { BHSS: 'Băng huyết sau sinh', 'NTĐ': 'Nhau tiền đạo', NBN: 'Nhau bong non', PAS: 'Nhau cài răng lược (placenta accreta spectrum)', TVS: 'Siêu âm đầu dò âm đạo', CTC: 'Cổ tử cung', TSM: 'Tầng sinh môn', NMC: 'Gây tê ngoài màng cứng', CTG: 'Monitor tim thai + cơn co', DIC: 'Đông máu nội mạch lan tỏa', AFE: 'Thuyên tắc ối', TOLAC: 'Thử chuyển dạ sau mổ lấy thai', VBAC: 'Sinh ngả âm đạo sau mổ lấy thai', SI: 'Shock Index = mạch ÷ HA tâm thu', TXA: 'Tranexamic acid — chống tiêu fibrin', HA: 'Huyết áp', 'ĐM': 'Động mạch', Hb: 'Hemoglobin (huyết sắc tố)', IU: 'Đơn vị quốc tế', IV: 'Tiêm / truyền tĩnh mạch', IM: 'Tiêm bắp', CPR: 'Hồi sinh tim phổi', HELLP: 'Tan máu · men gan tăng · tiểu cầu thấp', '4T': 'Tone (đờ tử cung) · Tissue (sót mô) · Trauma (rách) · Thrombin (đông máu)', Tone: 'Trương lực tử cung (đờ)', Tissue: 'Mô nhau còn sót', Trauma: 'Chấn thương đường sinh dục', Thrombin: 'Rối loạn đông máu', Bandl: 'Vòng co thắt: rãnh ngang bụng dâng cao khi dọa vỡ', Frommel: 'Dây chằng tròn căng như dây đàn khi dọa vỡ', Couvelaire: 'Tử cung tím do máu thấm vào cơ', Sheehan: 'Suy tuyến yên sau sinh vì thiếu máu', Horner: 'Sụp mi + co đồng tử', Moro: 'Phản xạ giật mình ở trẻ sơ sinh', McRoberts: 'Gập hai đùi mẹ sát bụng', RCOG: 'Hội Sản Phụ khoa Hoàng gia Anh', FIGO: 'Liên đoàn Sản Phụ khoa Quốc tế', UMP: 'Đại học Y Dược TP.HCM' };
+const glEsc = k => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const glRe = new RegExp('(?<![\\p{L}\\d])(' + Object.keys(GLOSS).sort((a, b) => b.length - a.length).map(glEsc).join('|') + ')(?![\\p{L}\\d])', 'gu');
+const gl = html => html.split(/(<[^>]+>)/).map((p, i) => i % 2 ? p : p.replace(glRe, m => `<abbr class="ab" tabindex="0" data-t="${e(GLOSS[m])}">${m}</abbr>`)).join('');
 const PRAISE = ['Chuẩn rồi! 🎉', 'Xịn xò! ✨', 'Giỏi quá trời! 🌟', 'Đỉnh luôn! 💖', 'Thông minh ghê! 🧠'];
 function burst(el) {
   const r = (el || document.body).getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
@@ -80,7 +90,7 @@ function renderMap() {
   const last = L.find(l => l.id === state.last) || L[0], count = state.done.length, pct = Math.round(count / L.length * 100), circ = 2 * Math.PI * 44;
   setView('map', 'pink', '', 0); renderRail();
   $('#stage').innerHTML = `<section class="hero c-pink"><div>${mascot('happy', 'mas')}</div><div><h1>zitthenk học<br>Cấp cứu Sản khoa 🩸</h1><p>Học bằng cách chơi: bấm, kéo, thử — mỗi màn chỉ một ý, có hình mô phỏng ngay trong từng bước!</p><div class="go"><a class="btn primary" href="#/step/${last.id}">${count ? '▶ Học tiếp' : '▶ Bắt đầu thôi'}</a><span class="status-note">${count ? 'Đang dở: ' + e(last.title) : '62 màn · khoảng 90 phút'}</span></div></div><div class="ring-p" aria-label="Tiến độ ${count}/${L.length} màn"><svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="44" fill="#fff" stroke="#fff" stroke-width="9"/><circle cx="50" cy="50" r="44" fill="none" stroke="var(--c-d)" stroke-width="9"/><circle cx="50" cy="50" r="44" fill="none" stroke="var(--red)" stroke-width="9" stroke-linecap="round" stroke-dasharray="${circ}" stroke-dashoffset="${circ * (1 - pct / 100)}"/></svg><b>${count}/${L.length}<small>màn xong</small></b></div></section>
-<div class="parts">${PARTS.map(([k, name, ids]) => `<div class="part"><h2>${e(name)}</h2>${ids.map(id => { const m = M.find(x => x.id === id), ls = moduleLessons(m), done = ls.filter(l => state.done.includes(l.id)).length, nxt = ls.find(l => !state.done.includes(l.id)) || ls[0]; return `<a class="mod c-${m.color}" href="#/step/${nxt.id}"><div class="ic">${MODICON[id]}</div><h3>${e(m.short)}</h3><p>${ls.length} màn · ~${Math.ceil(ls.length * 1.5)} phút${done ? ' · xong ' + done : ''}</p><div class="pips" aria-hidden="true">${ls.map(l => `<i class="${state.done.includes(l.id) ? 'done' : ''}"></i>`).join('')}</div></a>`; }).join('')}</div>`).join('')}</div>
+<div class="parts">${PARTS.map(([k, name, ids]) => `<div class="part"><h2>${e(name)}</h2>${ids.map(id => { const m = M.find(x => x.id === id), ls = moduleLessons(m), done = ls.filter(l => state.done.includes(l.id)).length, nxt = ls.find(l => !state.done.includes(l.id)) || ls[0]; return `<a class="mod c-${m.color}" href="${done ? '#/step/' + nxt.id : '#/chuong/' + id}"><div class="ic">${MODICON[id]}</div><h3>${e(m.short)}</h3><p>${ls.length} màn · ~${Math.ceil(ls.length * 1.5)} phút${done ? ' · xong ' + done : ''}</p><div class="pips" aria-hidden="true">${ls.map(l => `<i class="${state.done.includes(l.id) ? 'done' : ''}"></i>`).join('')}</div></a>`; }).join('')}</div>`).join('')}</div>
 <div class="quick"><a class="btn pink" href="#/osce">🩺 Luyện OSCE</a><a class="btn mint" href="#/sources">📚 Nguồn & đối chiếu</a><a class="btn" href="#/tra">📌 Tra nhanh đi trực</a><a class="btn" href="#/review">↺ Ôn câu chưa vững</a></div>
 <p class="status-note" style="text-align:center">Phím ← → để chuyển màn · / để tìm · tiến độ lưu ngay trên máy bạn.</p>`;
   setBar(`<span class="sign">${SIGN}</span><span class="mid"><span class="status-note">Chọn một thẻ để vào học nha 👆</span></span><span class="sign">☰ mục lục ở góc trên</span>`);
@@ -104,6 +114,17 @@ const ctlHtml = (c, i, S) => c.t === 'range' ? `<div class="rg"><div class="rgh"
 // sự kiện chung cho hình + thanh điều khiển (dùng cho cả trang Hiểu và trang tí hon)
 const wireSim = (S, set, done) => {
   $('#art').addEventListener('click', ev => { const d = ev.target.closest('[data-set]'); if (!d) return; const raw = d.dataset.set; let k, v; if (raw[0] === '!') { k = raw.slice(1); v = !S[k]; } else { [k, v] = raw.split('='); v = v === 'true' ? true : v === 'false' ? false : isNaN(+v) ? v : +v; } set(k, v); done(k, ev); });
+  // kéo thẳng trong hình: data-scrub="k:min:max:step" (kéo ngang đổi số) · data-drag="k:x0:y0:x1:y1" (kéo điểm → lưu k+'x', k+'y')
+  { const art = $('#art'); let gest = null;
+    art.addEventListener('pointerdown', ev => { const sc = ev.target.closest('[data-scrub]'), dr = ev.target.closest('[data-drag]'); if (!sc && !dr) return; ev.preventDefault();
+      if (sc) { const [k, mn, mx, st] = sc.dataset.scrub.split(':'); gest = { t: 's', k, mn: +mn, mx: +mx, st: +st || 1, x0: ev.clientX, v0: +S[k] || 0 }; }
+      else { const [k, a, b, c, d] = dr.dataset.drag.split(':'); gest = { t: 'd', k, b: [+a, +b, +c, +d], q: '[data-drag^="' + k + ':"]' }; }
+      try { art.setPointerCapture(ev.pointerId); } catch (err) { /* không sao */ } });
+    art.addEventListener('pointermove', ev => { if (!gest) return;
+      if (gest.t === 's') { const v = Math.max(gest.mn, Math.min(gest.mx, Math.round((gest.v0 + (ev.clientX - gest.x0) / 7 * gest.st) / gest.st) * gest.st)); if (v !== S[gest.k]) { set(gest.k, v); done(gest.k, ev, true); } }
+      else { const el = art.querySelector(gest.q), svg = el ? el.ownerSVGElement : art.querySelector('svg'); if (!svg) return; const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; const p = pt.matrixTransform(svg.getScreenCTM().inverse()), b = gest.b,
+          x = Math.max(b[0], Math.min(b[2], Math.round(p.x))), y = Math.max(b[1], Math.min(b[3], Math.round(p.y))); if (x !== S[gest.k + 'x'] || y !== S[gest.k + 'y']) { set(gest.k + 'x', x); set(gest.k + 'y', y); done(gest.k, ev, true); } } });
+    const end = () => { gest = null; }; art.addEventListener('pointerup', end); art.addEventListener('pointercancel', end); }
   $('#sim').addEventListener('input', ev => { const r = ev.target.closest('[data-r]'); if (!r) return; set(r.dataset.r, +r.value); $('#' + r.dataset.o).textContent = r.value + r.dataset.u; done(r.dataset.r, ev, true); });
   $('#sim').addEventListener('click', ev => {
     const chip = ev.target.closest('[data-chip]'), tg = ev.target.closest('[data-tog]'), sg = ev.target.closest('[data-seg]'), bt = ev.target.closest('[data-btn]');
@@ -130,20 +151,20 @@ function renderLesson(id, sub) {
     if (!state.done.includes(id)) { state.done.push(id); save(); }
     sound('chime'); toast(rand(PRAISE) + ' +1 ⭐'); burst(el || document.body); bar();
   };
+  const pgDone = (p, i) => BEATS()[id] ? (p === 'nho' ? !!state.answers[id]?.correct : !!state.beats[id + '/' + p] || (i === pi && isBeat && beatOk)) : (i < pi);
   const bar = () => {
-    const gated = gatedNow();
-    setBar(`<button class="btn flat" id="prev" data-go ${prevHash ? '' : 'disabled'}>◀ Trước</button><div class="mid"><div class="dots">${pages.map((p, i) => `<i class="${i === pi ? 'cur' : i < pi ? 'done' : ''}" title="${e(pageLab(l, p)[1])}"></i>`).join('')}</div><span class="sign">${SIGN}</span></div><button class="copy" id="copy" title="Sao chép link màn này" aria-label="Sao chép link màn này">📋</button><button class="btn ${gated ? '' : 'primary'}" id="next" data-go>${lastPg ? (endMod ? '🃏 Chốt chương ▶' : 'Bài tiếp ▶') : ((sub === 'hieu' || isBeat) && !gated ? '✓ Tiếp ▶' : 'Tiếp ▶')}</button>`);
+    const dn = isBeat ? (beatOk || !!state.beats[id + '/' + sub]) : (sub === 'nho' ? !!state.answers[id]?.correct : touched);
+    setBar(`<button class="btn flat" id="prev" data-go ${prevHash ? '' : 'disabled'}>◀ Trước</button><div class="mid"><div class="dots">${pages.map((p, i) => `<a class="dt" href="${lessonHash(l, p)}" title="${e(pageLab(l, p)[1])}"><i class="${i === pi ? 'cur' : ''} ${pgDone(p, i) ? 'done' : ''}"></i></a>`).join('')}</div><span class="sign">${SIGN}</span></div><button class="copy" id="copy" title="Sao chép link màn này" aria-label="Sao chép link màn này">📋</button><button class="btn ${dn ? 'primary' : ''}" id="next" data-go>${lastPg ? (endMod ? '🃏 Chốt chương ▶' : 'Bài tiếp ▶') : 'Tiếp ▶'}</button>`);
     $('#prev').onclick = goPrev; $('#next').onclick = goNext; $('#copy').onclick = copyLink;
   };
-  const gatedNow = () => (sub === 'hieu' && !(touched || state.done.includes(id))) || (isBeat && !beatOk && !state.done.includes(id));
-  const goPrev = () => { if (prevHash) go(prevHash); };
+  const goPrev = () => { if (prevHash) { sound('page'); go(prevHash); } };
   const goNext = () => {
-    if (gatedNow()) { const n = $('#next'); n.classList.remove('shake'); void n.offsetWidth; n.classList.add('shake'); sound('buzz'); toast(isBeat ? 'Làm thử trên hình đã nha 👆' : 'Làm xong phần tương tác của trang này đã nha 👆'); return; }
-    sound('pop'); go(nextHash);
+    sound('page'); go(nextHash);
   };
   window.__next = goNext; window.__prev = goPrev;
   setView('lesson-mode', m.color, `${MODICON[m.id]} ${m.short} · ${pos}/${ls.length} · ${pageLab(l, sub)[1]}`, ((pos - 1) + (pi + 1) / pages.length) / ls.length * 100); renderRail();
-  const head = isBeat || (sub === 'nho' && BEATS()[id]) ? `<div class="head bhead"><div class="ttl"><small>${e(l.title)} · ${pi + 1}/${pages.length}</small><h1><mark>${e(isBeat ? pageLab(l, sub)[1] : 'Thử nhớ')}</mark></h1></div><div class="bprog" aria-hidden="true">${pages.map((p, i) => `<i class="${i === pi ? 'cur' : i < pi ? 'done' : ''}"></i>`).join('')}</div><button class="pin" id="bookmark" title="Ghim để ôn lại" aria-label="Ghim màn để ôn lại">${state.bookmarks.includes(id) ? '📌' : '📍'}</button></div>`
+  const stepsHtml = () => `<ol class="bsteps" id="bsteps" aria-label="Các trang của bài này — bấm để nhảy">${pages.map((p, i) => { const dn = pgDone(p, i); return `<li class="${i === pi ? 'cur' : ''} ${dn ? 'done' : ''}"><a href="${lessonHash(l, p)}" title="${e(p === 'nho' ? 'Thử nhớ' : pageLab(l, p)[1])}${dn ? ' · xong' : ''}"><i>${dn ? '✓' : p === 'nho' ? '🧠' : i + 1}</i>${i === pi ? `<span>${e(p === 'nho' ? 'Thử nhớ' : pageLab(l, p)[1])}</span>` : ''}</a></li>`; }).join('')}</ol>`;
+  const head = isBeat || (sub === 'nho' && BEATS()[id]) ? `<div class="head bhead"><div class="ttl"><small>📖 ${e(l.title)} · ${pi + 1}/${pages.length}</small><h1><mark>${e(isBeat ? pageLab(l, sub)[1] : 'Thử nhớ')}</mark></h1></div>${stepsHtml()}<button class="pin" id="bookmark" title="Ghim để ôn lại" aria-label="Ghim màn để ôn lại">${state.bookmarks.includes(id) ? '📌' : '📍'}</button></div>`
     : `<div class="head"><h1 class="ttl"><mark>${e(l.title)}</mark></h1><ol class="stp" aria-label="Các trang của bài này">${pages.map((p, i) => `<li class="${i === pi ? 'cur' : i < pi ? 'done' : ''}">${PAGE[p][0]} ${PAGE[p][1]}</li>`).join('')}</ol>${sub === 'hieu' ? `<button class="howto-open" id="how-open" ${hideHow ? '' : 'hidden'}>📝 Cách học</button>` : ''}<button class="pin" id="bookmark" title="Ghim để ôn lại" aria-label="Ghim màn để ôn lại">${state.bookmarks.includes(id) ? '📌' : '📍'}</button></div>`;
   const wireCommon = () => {
     $('#bookmark').onclick = () => { if (state.bookmarks.includes(id)) state.bookmarks = state.bookmarks.filter(x => x !== id); else state.bookmarks.push(id); save(); $('#bookmark').textContent = state.bookmarks.includes(id) ? '📌' : '📍'; sound('pop'); toast(state.bookmarks.includes(id) ? 'Đã ghim màn này để ôn 📌' : 'Đã bỏ ghim'); };
@@ -152,25 +173,76 @@ function renderLesson(id, sub) {
   // ── trang Y4 sâu / Hình thầy / Thử nhớ: trang đầy đủ, mọi thứ hiện sẵn
   // ── trang tí hon: hình to + 1 việc để làm + 1 câu (không ô số, không khối chữ)
   if (isBeat) {
-    const bt = BEATS()[id][pi], kit = ZS.kits[bt.kit], S = Object.assign({}, kit.init(bt));
+    const bt = BEATS()[id][pi], kit = ZS.kits[bt.kit], S = Object.assign({}, kit.init(bt)), chain = window.ZS.chains?.[id + '/b' + (pi + 1)];
     const ok = () => (bt.goal || kit.goal)?.(S, bt);
+    const bkey = id + '/' + sub; beatOk = !!state.beats[bkey]; let demoOn = false;
+    const syncDone = () => { const on = !!state.beats[bkey], b = $('#donebtn'); if (b) { b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); b.textContent = on ? '✓ Xong' : '○ Xong?'; }
+      const li = $('#bsteps li.cur'); if (li) { li.classList.toggle('done', on); const ic = li.querySelector('i'); if (ic) ic.textContent = on ? '✓' : String(pi + 1); } };
+    const solvedTxt = () => { try { return kit.say(ZS.solve(kit, bt, l), bt, l)[1]; } catch (err) { return ''; } };
+    const wordsOf = t => String(t).replace(/\*\*/g, '').toLowerCase().match(/[\p{L}\d]+/gu) || [];
+    const redundant = (ch, txt) => { const have = new Set(ch.flatMap(wordsOf)), w = wordsOf(txt); return !w.length || w.filter(x => have.has(x)).length / w.length >= .74; };
+    const ahaKey = id + '/' + pi; let ahaTxt = ahaCache[ahaKey] || (ahaCache[ahaKey] = solvedTxt());
+    const chainHtml = ch => ch.map((t, i) => `<div class="cn c${i}"><em>${['👀 Thấy', '⚙️ Vì', '✅ Nên'][i]}</em><span>${gl(md(t))}</span></div>`).join('<div class="ar" aria-hidden="true">▼</div>');
+    const lockHtml = '<div class="cn lk"><em>👀 Thấy</em><span></span></div><div class="ar" aria-hidden="true">▼</div><div class="cn lk"><em>⚙️ Vì</em><span></span></div><div class="ar" aria-hidden="true">▼</div><div class="cn lk"><em>✅ Nên</em><span></span></div>';
+    // chỉ tay 👆 đúng chỗ cần làm: chỗ chạm đầu tiên trong hình, hoặc điều khiển đầu tiên trên thanh
+    const aimHand = () => { const fig = $('.fig'), hand = $('.fig>.coach'); if (!fig || !hand) return; if (beatOk || S._k) { hand.remove(); return; } const t = $('#art .tap, #art [data-scrub], #art [data-drag]') || $('#sim button, #sim input'); if (!t) return;
+      const fr = fig.getBoundingClientRect(), r = t.getBoundingClientRect(); hand.style.right = 'auto'; hand.style.top = 'auto'; hand.style.left = clamp(r.left - fr.left + r.width * .5 - 6, 8, fr.width - 40) + 'px'; hand.style.bottom = clamp(fr.bottom - r.top - r.height * .45 - 4, 6, fr.height - 36) + 'px'; };
     const paint = bump => {
       const body = kit.draw(S, bt, l), sp = splitAt(body);
       // điện thoại: tách hình chính và bảng kết quả bên phải thành 2 khối xếp dọc để chữ trong hình đủ to
       $('#art').innerHTML = sp ? `<svg class="sp1" viewBox="14 14 ${sp - 18} 326" role="img" aria-label="${e(bt.t)}">${ZS.defs}${body}</svg><svg class="sp2" viewBox="${sp - 2} 14 ${556 - sp} 326" aria-hidden="true">${ZS.defs}${body}</svg>`
-        : `<svg viewBox="0 0 560 350" role="img" aria-label="${e(bt.t)}">${ZS.defs}${body}</svg>`;
-      const [mood, text] = kit.say(S, bt, l); $('#mas').innerHTML = mascot(mood); const b = $('#bub'); b.innerHTML = md(text);
+        : `<svg viewBox="${(innerWidth <= 700 && kit.vbPhone) || '0 0 560 350'}" role="img" aria-label="${e(bt.t)}">${ZS.defs}${body}</svg>`;
+      let [mood, text] = kit.say(S, bt, l); const done = beatOk || !!ok();
+      if (done) { if (!ahaTxt) ahaTxt = ahaCache[ahaKey] = text; mood = 'wow'; text = ok() ? rand(['Làm được rồi! ✓ Đọc **À ra vậy** bên dưới 👇', 'Chuẩn! ✓ Xem **À ra vậy** bên dưới 👇', 'Xong! ✓ Nối **nguyên nhân → kết quả** bên dưới 👇']) : 'Bạn đã xong trang này ✓ Thử lại bất cứ lúc nào, hoặc đọc **À ra vậy** 👇'; }
+      $('#mas').innerHTML = mascot(mood); const b = $('#bub'); b.innerHTML = gl(md(text));
+      $('#todo').className = 'todo' + (done ? ' done' : ''); $('#todo').textContent = done ? '✅ Xong việc' : '👆 Việc của bạn';
+      const aha = $('#aha'); const was = aha.classList.contains('open'); aha.classList.toggle('open', done); aha.classList.toggle('locked', !done);
+      $('#chain').innerHTML = done && chain ? chainHtml(chain) : lockHtml;
+      $('#detail').innerHTML = done ? (chain ? (redundant(chain, ahaTxt) ? '' : '<small>📌 Ghi nhớ thêm</small>' + gl(md(ahaTxt))) : gl(md(ahaTxt))) : '<span class="lockmsg">🔒 Làm xong việc trên hình để mở</span>';
+      if (done && !was) { aha.classList.remove('pop'); void aha.offsetWidth; aha.classList.add('pop'); if (innerWidth <= 900) setTimeout(() => aha.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 250); }
       if (bump) { b.classList.remove('bump'); void b.offsetWidth; b.classList.add('bump'); }
+      requestAnimationFrame(aimHand);
     };
-    const sim = () => { const cs = kit.ui(S, bt); $('#sim').hidden = !cs.length; $('#sim').innerHTML = cs.map((c, i) => ctlHtml(c, i, S)).join(''); requestAnimationFrame(() => $('.fig')?.style.setProperty('--simh', (cs.length ? $('#sim').offsetHeight : 0) + 'px')); };
-    $('#stage').innerHTML = `<article class="lesson tihon">${head}<div class="bscene"><figure class="fig"><div class="sim" id="sim"></div><div class="artw"><div id="art"></div></div><button class="zoom" id="zoom-fig" aria-label="Phóng to hình">⤢</button><span class="coach">👆</span></figure><div class="bside"><div class="say"><div id="mas"></div><div class="bub" id="bub" aria-live="polite"></div></div>${bt.cr ? `<p class="credit">🖼 ${bt.cr}</p>` : ''}</div></div></article>`;
+    const sim = () => { const cs = kit.ui(S, bt); $('#sim').hidden = !cs.length; $('#sim').innerHTML = cs.map((c, i) => ctlHtml(c, i, S)).join(''); requestAnimationFrame(() => { $('.fig')?.style.setProperty('--simh', (cs.length ? $('#sim').offsetHeight : 0) + 'px'); aimHand(); }); };
+    $('#stage').innerHTML = `<article class="lesson tihon">${head}<div class="bscene"><figure class="fig"><button class="done-tag ${state.beats[bkey] ? 'on' : ''}" id="donebtn" type="button" aria-pressed="${!!state.beats[bkey]}" title="Huy hiệu xong — bấm để tự đánh dấu / bỏ đánh dấu">${state.beats[bkey] ? '✓ Xong' : '○ Xong?'}</button><div class="sim" id="sim"></div><div class="artw enter"><div id="art"></div></div><button class="zoom" id="zoom-fig" aria-label="Phóng to hình">⤢</button><span class="coach">👆</span></figure><div class="bside"><div class="task"><div class="trow"><b class="todo" id="todo">👆 Việc của bạn</b><button class="demo" id="demo" type="button" title="Xem bàn tay ma làm mẫu">▶ Xem mẫu</button></div><div class="say"><div id="mas"></div><div class="bub" id="bub" aria-live="polite"></div></div></div><section class="aha locked" id="aha" aria-live="polite"><h3>💡 À ra vậy</h3><div class="chain" id="chain"></div><p class="detail" id="detail"></p></section>${bt.cr ? `<p class="credit">🖼 ${bt.cr}</p>` : ''}</div></div></article>`;
+    // ▶ Xem mẫu: bàn tay ma làm đúng chuỗi thao tác ngắn nhất tới đích (kế hoạch do ZS.plan tìm sẵn)
+    let demoT = []; const later = (fn, ms) => demoT.push(setTimeout(fn, ms));
+    const stopDemo = () => { demoT.forEach(clearTimeout); demoT = []; demoOn = false; cancelAnimationFrame(demoRaf); $('#demohand')?.remove(); const b = $('#demo'); if (b) { b.textContent = '▶ Xem mẫu'; b.classList.remove('on'); } };
+    let demoRaf = 0; window.__stopDemo = stopDemo;
+    const hand = () => { let h = $('#demohand'); if (!h) { h = document.createElement('span'); h.id = 'demohand'; h.className = 'demohand'; h.textContent = '👆'; $('.fig').appendChild(h); } return h; };
+    const aim = (el, fx = .5, fy = .5) => { const h = hand(), fr = $('.fig').getBoundingClientRect(), r = el.getBoundingClientRect(); h.style.left = clamp(r.left - fr.left + r.width * fx - 8, 4, fr.width - 34) + 'px'; h.style.top = clamp(r.top - fr.top + r.height * fy - 4, 4, fr.height - 34) + 'px'; };
+    const runStep = st => {
+      if (st.t === 'tap') { const el = $('#art [data-set="' + st.raw + '"]'); if (!el) return 0; const r = el.querySelector('ellipse,rect,circle,path') || el; aim(r); later(() => { hand().classList.add('press'); later(() => { hand().classList.remove('press'); el.isConnected && el.dispatchEvent(new MouseEvent('click', { bubbles: true })); }, 220); }, 650); return 1100; }
+      if (st.t === 'range') { const el = $('#sim input[data-r="' + st.k + '"]'); if (!el) return 0; const mn = +el.min, mx = +el.max, from = +el.value, to = st.v, fr0 = el.getBoundingClientRect();
+        const thumb = v => ({ getBoundingClientRect: () => { const r = el.getBoundingClientRect(); return { left: r.left + (v - mn) / (mx - mn || 1) * r.width, top: r.top, width: 0, height: r.height }; } });
+        aim(thumb(from), 0, .5); later(() => { const t0 = performance.now(), dur = 1100; const tick = now => { const k = clamp((now - t0) / dur, 0, 1), e2 = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2, v = Math.round((from + (to - from) * e2) / (+el.step || 1)) * (+el.step || 1); const cur = $('#sim input[data-r="' + st.k + '"]'); if (!cur) return; aim(thumb(v), 0, .5); if (+cur.value !== v) { cur.value = v; cur.dispatchEvent(new Event('input', { bubbles: true })); } if (k < 1) demoRaf = requestAnimationFrame(tick); }; demoRaf = requestAnimationFrame(tick); }, 600); return 1900; }
+      if (st.t === 'scrub' || st.t === 'drag') { const art = $('#art'), q = st.t === 'scrub' ? '[data-scrub^="' + st.k + ':"]' : '[data-drag^="' + st.k + ':"]', el = art.querySelector(q); if (!el) return 0;
+        const svg = el.ownerSVGElement, toClient = (x, y) => { const pt = svg.createSVGPoint(); pt.x = x; pt.y = y; const c = pt.matrixTransform(svg.getScreenCTM()); return [c.x, c.y]; }, r0 = el.getBoundingClientRect(), sx = r0.left + r0.width / 2, sy = r0.top + r0.height / 2;
+        const ev = (type, x, y) => art.dispatchEvent(new PointerEvent(type, { bubbles: true, pointerId: 77, clientX: x, clientY: y }));
+        const Hh = hand(); aim({ getBoundingClientRect: () => ({ left: sx, top: sy, width: 0, height: 0 }) }, 0, 0);
+        later(() => { el.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 77, clientX: sx, clientY: sy })); const t0 = performance.now(), dur = 1100;
+          let tx, ty; if (st.t === 'scrub') { const mn = +el.dataset.scrub.split(':')[1], mx = +el.dataset.scrub.split(':')[2], st0 = +el.dataset.scrub.split(':')[3] || 1, cur = +S[st.k] || 0; tx = sx + (st.v - cur) / st0 * 7; ty = sy; } else { [tx, ty] = toClient(st.x, st.y); }
+          const tick = now => { const k = clamp((now - t0) / dur, 0, 1), e2 = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2, cx = sx + (tx - sx) * e2, cy = sy + (ty - sy) * e2; aim({ getBoundingClientRect: () => ({ left: cx, top: cy, width: 0, height: 0 }) }, 0, 0); ev('pointermove', cx, cy); if (k < 1) demoRaf = requestAnimationFrame(tick); else ev('pointerup', cx, cy); }; demoRaf = requestAnimationFrame(tick); }, 600); return 1900; }
+      const q = st.t === 'tog' ? '#sim [data-tog="' + st.k + '"]' : st.t === 'seg' ? '#sim [data-seg="' + st.k + '"][data-v="' + st.v + '"]' : '#sim [data-btn="' + st.k + '"][data-v="' + st.v + '"]'; const el = $(q); if (!el) return 0;
+      if (st.t === 'tog' && (el.getAttribute('aria-pressed') === 'true') === !!st.v) return 0; aim(el); later(() => { hand().classList.add('press'); later(() => { hand().classList.remove('press'); el.isConnected && el.dispatchEvent(new MouseEvent('click', { bubbles: true })); }, 220); }, 650); return 1100;
+    };
+    $('#demo').onclick = () => {
+      if (demoOn) { stopDemo(); return; }
+      const steps = ZS.plan(kit, bt, l); if (!steps.length) { toast('Trang này tự làm là nhanh nhất 👆'); return; }
+      stopDemo(); demoOn = true; $('.fig>.coach')?.remove(); const b = $('#demo'); b.textContent = '⏹ Dừng'; b.classList.add('on');
+      Object.keys(S).forEach(k => delete S[k]); Object.assign(S, kit.init(bt)); beatOk = false; sim(); paint(); sound('pop');
+      let t = 500; steps.forEach(st => { later(() => { const d = runStep(st); if (!d) return; }, t); t += (st.t === 'range' ? 1900 : 1100) + 650; });
+      later(() => { stopDemo(); toast('Giờ tới lượt bạn thử lại nha 👆'); }, t + 600);
+    };
+    ['pointerdown', 'keydown'].forEach(ev => $('#art').addEventListener(ev, () => { if (demoOn) stopDemo(); }));
     sim(); paint(); bar(); wireCommon();
     wireSim(S, (k, v) => { const p = Object.assign({}, S); delete p._p; S._p = p; S._k = k; S[k] = v; kit.after?.(S, k, bt); }, (k, ev, slide) => {
-      $('.fig>.coach')?.remove(); if (!slide) sim(); const was = beatOk; if (!(bt.goal || kit.goal)) beatOk = true; else if (ok()) beatOk = true;
+      if (!slide) sim(); const was = beatOk; if (!(bt.goal || kit.goal)) beatOk = true; else if (ok()) beatOk = true;
       const [mood] = kit.say(S, bt, l); paint(true);
-      if (beatOk && !was) { sound('chime'); burst(ev.target.closest('svg,button') || $('#art')); bar(); } else if (!slide) sound(mood === 'ouch' || mood === 'sad' ? 'buzz' : 'pop');
+      if (beatOk && !was) { if (!demoOn && !state.beats[bkey]) { state.beats[bkey] = true; save(); syncDone(); } sound('chime'); burst(ev.target.closest('svg,button') || $('#art')); bar(); } else if (!slide) sound(ev.target.closest('.tg,.sg,.chip') ? 'click' : mood === 'ouch' || mood === 'sad' ? 'buzz' : 'pop');
     });
     $('#zoom-fig').onclick = () => openZoom($('#art').innerHTML, bt.t);
+    $('#donebtn').onclick = () => { if (state.beats[bkey]) { delete state.beats[bkey]; beatOk = !!ok(); } else { state.beats[bkey] = true; beatOk = true; sound('chime'); } save(); syncDone(); paint(); bar(); };
     return;
   }
   if (sub !== 'hieu') {
@@ -320,15 +392,57 @@ function stepsFor(c) {
   steps.push({ id: 'check', icon: '✅', t: 'Đối chiếu & tự chấm', secs: 'sau trạm', goal: 'Xem điểm tự chấm theo từng nhóm tiêu chí, rồi đối chiếu với đáp án nguồn.', items: [] });
   return { cf, steps, total: n };
 }
-let oStep = 0, oCase = '', oShown = new Set();
+let oStep = 0, oCase = '', oHidden = new Set(), oMode = 'steps';
 function caseProgress(c) { const { total } = stepsFor(c); return total ? Math.round((state.rubrics[c.id] || []).length / total * 100) : 0; }
 function renderOSCE() {
   const cases = window.OSCE_CASES || [], by = k => cases.filter(c => (ST[c.id]?.kind || 'cc') === k);
-  const card = c => { const cf = ST[c.id] || { icon: '🩺' }, ans = arr(getAnswer(c)).length, pr = caseProgress(c); return `<a class="st-card" href="#/case/${e(c.id)}"><span class="st-ic">${cf.icon}</span><span class="st-body"><b>${e(c.title)}</b><small>${e(c.source?.examLabel || 'Trạm OSCE')} · ${c.minutes || 5} phút</small><span class="st-tags"><i class="${ans ? 'ok' : ''}">${ans ? '✓ có đáp án nguồn' : 'chưa có đáp án riêng'}</i>${pr ? `<i class="pr">tự chấm ${pr}%</i>` : ''}</span></span><span class="st-go">▶</span></a>`; };
-  $('#stage').innerHTML = `<section class="o-hero"><div>${mascot('happy', 'mas')}</div><div><h1>Phòng thi OSCE 🩺</h1><p>Mỗi ca là một trạm ${C.date ? '' : ''}5 phút. Làm từng bước: <b>đọc đề → nói thành tiếng → xem gợi ý & tick → đối chiếu</b>. Không cần học thuộc đáp án, chỉ cần đủ ý và đúng thứ tự.</p><div class="go"><a class="btn primary" href="#/osce/guide">📘 Học cách làm một trạm</a><a class="btn pink" href="#/case/${e((cases[Math.floor(Math.random() * cases.length)] || {}).id || '')}">🎲 Vào trạm ngẫu nhiên</a></div></div></section>
-<h2 class="o-h">🚨 Trạm cấp cứu <small>${by('cc').length} trạm · nói to, làm ngay</small></h2><div class="st-grid">${by('cc').map(card).join('')}</div>
-<h2 class="o-h">💬 Trạm tư vấn <small>${by('tv').length} trạm · hỏi trước, giải thích sau</small></h2><div class="st-grid">${by('tv').map(card).join('')}</div>
-<p class="status-note" style="margin-top:14px">Đề là bản nhớ lại của sinh viên, ghi rõ nguồn. Phần gợi ý do sổ tay soạn từ bài học UMP + rubric, <b>không phải đáp án thi chính thức</b>. <a href="#/sources/rubric">Xem rubric gốc ↗</a></p>`;
+  const card = c => {
+    const cf = ST[c.id] || { icon: '🩺' }, ans = arr(getAnswer(c)).length, pr = caseProgress(c);
+    const topLabel = c.topic === 'nbn' ? 'Nhau bong non' : c.topic === 'ntd' ? 'Nhau tiền đạo' : 'TOLAC / Mổ cũ';
+    const topBadge = c.topic === 'nbn' ? 'butter' : c.topic === 'ntd' ? 'lavender' : 'mint';
+    return `<a class="st-card" href="#/case/${e(c.id)}">
+      <span class="st-ic">${cf.icon}</span>
+      <span class="st-body">
+        <b>${e(c.title)}</b>
+        <small>${e(c.source?.examLabel || 'Trạm OSCE')} · ⏱️ 5 phút</small>
+        <span class="st-tags">
+          <i style="background:var(--${topBadge});color:var(--ink)">${topLabel}</i>
+          <i class="${ans ? 'ok' : ''}">${ans ? '✓ có đáp án nguồn' : 'chưa có đáp án riêng'}</i>
+          ${pr ? `<i class="pr">tự chấm ${pr}%</i>` : ''}
+        </span>
+      </span>
+      <span class="st-go">▶</span>
+    </a>`;
+  };
+  $('#stage').innerHTML = `<section class="o-hero">
+    <div>${mascot('happy', 'mas')}</div>
+    <div>
+      <h1>Phòng Thi Mô Phỏng OSCE Sản Khoa 🩺</h1>
+      <p>Mô phỏng trạm thi 5 phút chuẩn Y4 ĐHYD: <b>Bản đồ tư duy logic ➔ Thi thử toàn trạm với Pacing Bar & Rubric 10đ ➔ Kịch bản lời nói mẫu thực chiến</b>.</p>
+      <div class="go">
+        <a class="btn primary" href="#/osce/guide">📘 4 Trụ Cột Chấm Điểm Rubric</a>
+        <a class="btn pink" href="#/case/${e((cases[Math.floor(Math.random() * cases.length)] || {}).id || '')}">🎲 Bốc Trạm Thi Ngẫu Nhiên</a>
+      </div>
+    </div>
+  </section>
+  <div style="background:#fff;border:1.4px solid var(--c-d);border-radius:20px;padding:14px 18px;margin:12px 0;box-shadow:0 2px 10px rgba(74,63,99,.06)">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <span style="font-size:20px">🧭</span>
+      <b style="font:800 15px var(--disp);color:var(--ink)">QUY TẮC PHÒNG THI 5 PHÚT (TIME-PACING CHO SINH VIÊN Y4):</b>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;font-size:12.5px;font-weight:700">
+      <div style="background:#eff6ff;padding:8px 10px;border-radius:12px;border:1px solid #bfdbfe"><b style="color:#1d4ed8">0:00 – 0:30 (Đọc đề):</b> Bắt 5 neo (Tuổi thai, Triệu chứng, Sinh hiệu, Tim thai, Yêu cầu)</div>
+      <div style="background:#fee2e2;padding:8px 10px;border-radius:12px;border:1px solid #fecaca"><b style="color:#b91c1c">0:30 – 1:30 (Vào trạm):</b> LA TO BÁO ĐỘNG ĐỎ, 2 kim 18G, mắc monitor, lấy máu</div>
+      <div style="background:#fffbeb;padding:8px 10px;border-radius:12px;border:1px solid #fde68a"><b style="color:#b45309">1:30 – 2:30 (CTG & Chẩn đoán):</b> Đọc nhịp giảm muộn/tăng trương lực + Nêu lý do từ đề</div>
+      <div style="background:#f0fdf4;padding:8px 10px;border-radius:12px;border:1px solid #bbf7d0"><b style="color:#15803d">2:30 – 4:30 (CLS & Xử trí 3 làn):</b> CTM/Đông máu có Fibrinogen + Mổ khẩn/Sinh ngả + Sơ sinh</div>
+      <div style="background:#faf5ff;padding:8px 10px;border-radius:12px;border:1px solid #e9d5ff"><b style="color:#6b21a8">4:30 – 5:00 (Tư vấn):</b> Lời đời thường, dặn dò 3 dấu hiệu nguy hiểm + Teach-back</div>
+    </div>
+  </div>
+  <h2 class="o-h">🚨 Trạm Cấp Cứu Sản Khoa <small>${by('cc').length} trạm · nói to, phản xạ thần tốc, làm ngay</small></h2>
+  <div class="st-grid">${by('cc').map(card).join('')}</div>
+  <h2 class="o-h">💬 Trạm Tư Vấn Tiền Sản & Mổ Cũ <small>${by('tv').length} trạm · hỏi bệnh, cân bằng lợi ích & nguy cơ</small></h2>
+  <div class="st-grid">${by('tv').map(card).join('')}</div>
+  <p class="status-note" style="margin-top:14px">Đề là bản nhớ lại của sinh viên ĐHYD TP.HCM, ghi rõ nguồn. Phần gợi ý bám sát giáo trình UMP và Rubric Bộ môn Sản. <a href="#/sources/rubric">Xem rubric gốc ↗</a></p>`;
   renderRail();
 }
 function renderOsceGuide() {
@@ -341,41 +455,739 @@ function renderOsceGuide() {
 <div class="hero-actions"><a class="btn primary" href="#/osce">▶ Chọn trạm để luyện</a></div>`;
   renderRail();
 }
+
+function renderOsceScene(c, st, oStep, cf) {
+  const top = cf.topic, kind = cf.kind;
+  let s = `<div class="osce-viz" style="margin-bottom:12px;border-radius:18px;overflow:hidden;border:1.2px solid var(--c-d);background:#fff;box-shadow:0 2px 10px rgba(74,63,99,.06)"><svg viewBox="0 0 560 210" style="width:100%;height:auto;display:block" role="img" aria-label="Mô phỏng trạm OSCE">`;
+  s += `<defs><linearGradient id="gOcHeader" x1="0" y1="0" x2="1" y2="0"><stop offset="0%" stop-color="#4a3f63"/><stop offset="100%" stop-color="#7c6f96"/></linearGradient></defs>`;
+  s += `<rect width="560" height="210" fill="#faf8fd"/>`;
+  s += `<rect width="560" height="34" fill="url(#gOcHeader)"/>`;
+  s += `<text x="18" y="22" fill="#fff" font-family="Outfit, sans-serif" font-size="13" font-weight="800" letter-spacing=".5px">TRẠM THI MÔ PHỎNG LÂM SÀNG · BƯỚC ${oStep + 1}: ${e(st.t).toUpperCase()}</text>`;
+  s += `<text x="542" y="22" text-anchor="end" fill="#fde68a" font-family="Outfit, sans-serif" font-size="12" font-weight="700">${kind === 'cc' ? '🚨 CẤP CỨU' : '💬 TƯ VẤN'}</text>`;
+
+  if (st.id === 'read') {
+    const f1 = cf.facts[0] || ['Sản phụ', 'Chưa rõ'], f2 = cf.facts[1] || ['Triệu chứng', 'Theo dõi'], f3 = cf.facts[2] || ['Sinh hiệu', 'Ổn'], f4 = cf.facts[3] || ['Mục tiêu', 'Xử trí'];
+    const cards = [
+      ['👤 ' + f1[0], f1[1], 18, '#3b82f6', '#eff6ff'],
+      ['⚡ ' + f2[0], f2[1], 152, '#ef4444', '#fef2f2'],
+      ['📊 ' + f3[0], f3[1], 286, '#f59e0b', '#fffbeb'],
+      ['🎯 ' + f4[0], f4[1], 420, '#10b981', '#f0fdf4']
+    ];
+    cards.forEach(([hd, val, x, col, bg]) => {
+      s += `<rect x="${x}" y="46" width="122" height="150" rx="14" fill="${bg}" stroke="${col}" stroke-width="1.3"/>`;
+      s += `<rect x="${x}" y="46" width="122" height="28" rx="14" fill="${col}" opacity=".15"/>`;
+      s += `<text x="${x + 8}" y="65" fill="${col}" font-family="Outfit, sans-serif" font-size="11.5" font-weight="800">${e(hd.slice(0, 15))}</text>`;
+      const words = val.split(' ');
+      let line = '', ly = 92;
+      for (let w of words) {
+        if ((line + ' ' + w).length > 15) {
+          s += `<text x="${x + 8}" y="${ly}" fill="#1e293b" font-family="system-ui, sans-serif" font-size="11" font-weight="600">${e(line)}</text>`;
+          line = w; ly += 16; if (ly > 185) break;
+        } else { line = line ? line + ' ' + w : w; }
+      }
+      if (line && ly <= 185) s += `<text x="${x + 8}" y="${ly}" fill="#1e293b" font-family="system-ui, sans-serif" font-size="11" font-weight="600">${e(line)}</text>`;
+    });
+  } else if (st.id === 'enter' || st.id === 'open') {
+    if (kind === 'cc') {
+      s += `<rect x="20" y="46" width="160" height="150" rx="14" fill="#fee2e2" stroke="#ef4444" stroke-width="1.5"/>`;
+      s += `<text x="100" y="72" text-anchor="middle" font-size="28">🗣️</text><text x="100" y="96" text-anchor="middle" font-family="Outfit, sans-serif" font-size="13" font-weight="800" fill="#991b1b">MŨI 1: BÁC SĨ</text><text x="100" y="118" text-anchor="middle" font-size="11" font-weight="700" fill="#7f1d1d">LA TO GỌI HỖ TRỢ</text><text x="100" y="136" text-anchor="middle" font-size="10.5" fill="#555">Phân công kíp trực</text><text x="100" y="152" text-anchor="middle" font-size="10.5" fill="#555">Báo phòng mổ cấp cứu</text><text x="100" y="172" text-anchor="middle" font-size="10" font-weight="700" fill="#dc2626">✓ THỂ HIỆN KHẨN TRƯƠNG</text>`;
+
+      s += `<rect x="200" y="46" width="160" height="150" rx="14" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.5"/>`;
+      s += `<text x="280" y="72" text-anchor="middle" font-size="28">🩸</text><text x="280" y="96" text-anchor="middle" font-family="Outfit, sans-serif" font-size="13" font-weight="800" fill="#0369a1">MŨI 2: ĐIỀU DƯỠNG</text><text x="280" y="118" text-anchor="middle" font-size="11" font-weight="700" fill="#075985">2 ĐƯỜNG TRUYỀN LỚN</text><text x="280" y="136" text-anchor="middle" font-size="10.5" fill="#555">Kim 16–18G + dịch ấm</text><text x="280" y="152" text-anchor="middle" font-size="10.5" fill="#555">Lấy máu xét nghiệm khẩn</text><text x="280" y="172" text-anchor="middle" font-size="10" font-weight="700" fill="#0284c7">✓ BÁO NGÂN HÀNG MÁU</text>`;
+
+      s += `<rect x="380" y="46" width="160" height="150" rx="14" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>`;
+      s += `<text x="460" y="72" text-anchor="middle" font-size="28">📈</text><text x="460" y="96" text-anchor="middle" font-family="Outfit, sans-serif" font-size="13" font-weight="800" fill="#b45309">MŨI 3: MONITOR</text><text x="460" y="118" text-anchor="middle" font-size="11" font-weight="700" fill="#92400e">THEO DÕI LIÊN TỤC</text><text x="460" y="136" text-anchor="middle" font-size="10.5" fill="#555">Mắc monitor sinh hiệu mẹ</text><text x="460" y="152" text-anchor="middle" font-size="10.5" fill="#555">Monitoring tim thai & cơn gò</text><text x="460" y="172" text-anchor="middle" font-size="10" font-weight="700" fill="#d97706">✓ ĐÁNH GIÁ TRI GIÁC</text>`;
+    } else {
+      s += `<rect x="30" y="50" width="500" height="142" rx="16" fill="#fdfbff" stroke="#a855f7" stroke-width="1.4"/>`;
+      s += `<text x="280" y="74" text-anchor="middle" font-family="Outfit, sans-serif" font-size="14" font-weight="800" fill="#6b21a8">GIAO TIẾP TƯ VẤN 2 CHIỀU ĐỒNG THUẬN (SHARED DECISION)</text>`;
+      s += `<g transform="translate(60 88)"><circle cx="30" cy="30" r="26" fill="#f3e8ff" stroke="#a855f7" stroke-width="1.5"/><text x="30" y="38" text-anchor="middle" font-size="24">👩‍⚕️</text><text x="30" y="72" text-anchor="middle" font-size="11" font-weight="700">Bác sĩ</text></g>`;
+      s += `<path d="M130 118 H200" stroke="#a855f7" stroke-width="2.5" stroke-dasharray="4 3"/>`;
+      s += `<g transform="translate(205 92)"><rect width="150" height="52" rx="10" fill="#fff" stroke="#c084fc" stroke-width="1.2"/><text x="75" y="18" text-anchor="middle" font-size="10.5" font-weight="700" fill="#4a044e">1. Chào hỏi thân thiện</text><text x="75" y="33" text-anchor="middle" font-size="10.5" font-weight="700" fill="#4a044e">2. Xác nhận tên & tuổi</text><text x="75" y="47" text-anchor="middle" font-size="10" fill="#701a75">3. Lắng nghe lý do đến</text></g>`;
+      s += `<path d="M360 118 H430" stroke="#a855f7" stroke-width="2.5" stroke-dasharray="4 3"/>`;
+      s += `<g transform="translate(435 88)"><circle cx="30" cy="30" r="26" fill="#fdf2f8" stroke="#ec4899" stroke-width="1.5"/><text x="30" y="38" text-anchor="middle" font-size="24">🤰</text><text x="30" y="72" text-anchor="middle" font-size="11" font-weight="700">Sản phụ</text></g>`;
+    }
+  } else if (st.id === 'assess' || st.id === 'history') {
+    if (top === 'nbn') {
+      s += `<rect x="20" y="46" width="250" height="150" rx="14" fill="#0f172a" stroke="#334155" stroke-width="1.5"/>`;
+      s += `<text x="34" y="68" fill="#38bdf8" font-family="Outfit, monospace" font-size="12" font-weight="700">PATIENT MONITOR</text>`;
+      s += `<text x="34" y="96" fill="#ef4444" font-family="monospace" font-size="20" font-weight="800">HR: 115 <tspan font-size="11">bpm (nhanh)</tspan></text>`;
+      s += `<text x="34" y="122" fill="#22c55e" font-family="monospace" font-size="18" font-weight="800">BP: 105/65 <tspan font-size="11">mmHg</tspan></text>`;
+      s += `<text x="34" y="146" fill="#eab308" font-family="monospace" font-size="16" font-weight="800">SI = HR÷HATT = 1.09</text>`;
+      s += `<rect x="34" y="156" width="222" height="26" rx="6" fill="#7f1d1d"/><text x="145" y="173" text-anchor="middle" fill="#fecaca" font-size="11" font-weight="800">⚠️ BÁO ĐỘNG SỐC TIỀM TẨN</text>`;
+
+      s += `<rect x="286" y="46" width="254" height="150" rx="14" fill="#fef2f2" stroke="#dc2626" stroke-width="1.5"/>`;
+      s += `<text x="413" y="68" text-anchor="middle" fill="#991b1b" font-family="Outfit, sans-serif" font-size="12" font-weight="800">BĂNG GHI CTG: CƯỜNG TÍNH</text>`;
+      s += `<path d="M300 90 Q340 85 360 115 T420 120 T460 90 T520 88" fill="none" stroke="#dc2626" stroke-width="2.5"/>`;
+      s += `<text x="413" y="112" text-anchor="middle" fill="#dc2626" font-size="10.5" font-weight="700">Nhịp giảm muộn sâu (Late decel)</text>`;
+      s += `<path d="M300 160 Q330 135 360 160 Q390 135 420 160 Q450 135 480 160 Q500 145 520 160" fill="none" stroke="#7f1d1d" stroke-width="2.5"/>`;
+      s += `<text x="413" y="178" text-anchor="middle" fill="#7f1d1d" font-size="10" font-weight="800">Cơn co dồn dập · Trương lực nền tăng cao</text>`;
+    } else if (top === 'ntd') {
+      s += `<rect x="20" y="46" width="250" height="150" rx="14" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.5"/>`;
+      s += `<text x="145" y="70" text-anchor="middle" fill="#15803d" font-family="Outfit, sans-serif" font-size="13" font-weight="800">KHÁM MỎ VỊT AN TOÀN</text>`;
+      s += `<path d="M70 120 C100 100 170 100 210 120" stroke="#16a34a" stroke-width="5" fill="none"/>`;
+      s += `<circle cx="145" cy="118" r="16" fill="#fca5a5" stroke="#dc2626" stroke-width="2"/>`;
+      s += `<circle cx="145" cy="118" r="5" fill="#7f1d1d"/>`;
+      s += `<text x="145" y="152" text-anchor="middle" font-size="11" font-weight="700" fill="#166534">Mỏ vịt bộc lộ cổ tử cung</text>`;
+      s += `<text x="145" y="172" text-anchor="middle" font-size="10.5" fill="#15803d">Máu đỏ tươi từ lỗ CTC, cùng đồ mềm</text>`;
+
+      s += `<rect x="286" y="46" width="254" height="150" rx="14" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>`;
+      s += `<circle cx="413" cy="100" r="32" fill="#fff" stroke="#dc2626" stroke-width="3"/>`;
+      s += `<text x="413" y="108" text-anchor="middle" font-size="32">✋</text>`;
+      s += `<line x1="390" y1="80" x2="436" y2="120" stroke="#dc2626" stroke-width="4"/>`;
+      s += `<text x="413" y="152" text-anchor="middle" fill="#991b1b" font-family="Outfit, sans-serif" font-size="12.5" font-weight="800">CẤM THĂM KHÁM NGÓN TAY!</text>`;
+      s += `<text x="413" y="172" text-anchor="middle" fill="#b91c1c" font-size="10.5" font-weight="600">Nguy cơ chọc thủng bánh nhau gây tử vong</text>`;
+    } else {
+      s += `<rect x="20" y="46" width="520" height="150" rx="14" fill="#fff" stroke="#0284c7" stroke-width="1.4"/>`;
+      s += `<text x="280" y="70" text-anchor="middle" fill="#0369a1" font-family="Outfit, sans-serif" font-size="13" font-weight="800">4 MỤC KHAI THÁC QUAN TRỌNG KHI CÓ SẸO MỔ LẤY THAI CŨ</text>`;
+      const items = [
+        ['1. LÝ DO MỔ CŨ', 'Ngôi mông / thai suy / chuyển dạ ngưng tiến? Có tái diễn không?'],
+        ['2. ĐƯỜNG RẠCH TỬ CUNG', 'Sẹo ngang đoạn dưới? XIN GIẤY RA VIỆN / BIÊN BẢN MỔ!'],
+        ['3. KHOẢNG CÁCH LẦN SINH', 'Khoảng cách > 18–24 tháng an toàn hơn cho sẹo mổ'],
+        ['4. THAI KỲ HIỆN TẠI', 'Ngôi chỏm, con ước <3500g, nhau không che lỗ trong, mẹ ổn']
+      ];
+      items.forEach(([a, b], i) => {
+        const y = 92 + i * 26;
+        s += `<rect x="36" y="${y - 14}" width="488" height="22" rx="6" fill="${i === 1 ? '#ffedd5' : '#f0f9ff'}"/>`;
+        s += `<text x="46" y="${y}" fill="${i === 1 ? '#c2410c' : '#0369a1'}" font-family="Outfit, sans-serif" font-size="11.5" font-weight="800">${a}:</text>`;
+        s += `<text x="210" y="${y}" fill="#334155" font-size="11" font-weight="600">${b}</text>`;
+      });
+    }
+  } else if (st.id === 'dx' || st.id === 'analyze') {
+    if (top === 'nbn') {
+      s += `<text x="280" y="65" text-anchor="middle" font-family="Outfit, sans-serif" font-size="13" font-weight="800" fill="#991b1b">CHUỖI SINH LÝ BỆNH: NHAU BONG NON ➔ DIC</text>`;
+      const chain = ['Khối máu tụ sau nhau', 'Bóc tách gai nhau', 'Mất trao đổi Oxy', 'Tim thai chậm cấp', 'DIC / Tiêu thụ Fibrinogen'];
+      chain.forEach((txt, i) => {
+        const x = 20 + i * 105;
+        s += `<rect x="${x}" y="85" width="98" height="85" rx="12" fill="${i === 4 ? '#fee2e2' : '#f8fafc'}" stroke="${i === 4 ? '#dc2626' : '#94a3b8'}" stroke-width="${i === 4 ? 2 : 1.2}"/>`;
+        s += `<text x="${x + 49}" y="115" text-anchor="middle" font-size="18">${['🩸', '💥', '🫁', '📉', '🚨'][i]}</text>`;
+        s += `<text x="${x + 49}" y="138" text-anchor="middle" font-family="Outfit, sans-serif" font-size="10" font-weight="700" fill="#1e293b">${txt.split(' ')[0]}</text>`;
+        s += `<text x="${x + 49}" y="152" text-anchor="middle" font-size="9" fill="#64748b">${txt.split(' ').slice(1).join(' ')}</text>`;
+      });
+    } else if (top === 'ntd') {
+      s += `<rect x="30" y="50" width="500" height="142" rx="16" fill="#fff" stroke="#f59e0b" stroke-width="1.4"/>`;
+      s += `<text x="280" y="74" text-anchor="middle" font-family="Outfit, sans-serif" font-size="13.5" font-weight="800" fill="#b45309">CƠ CHẾ CHẢY MÁU TRONG NHAU TIỀN ĐẠO</text>`;
+      s += `<path d="M120 160 C150 90 230 90 260 160" stroke="#f59e0b" stroke-width="4" fill="none"/>`;
+      s += `<rect x="160" y="145" width="60" height="18" rx="6" fill="#ef4444"/><text x="190" y="158" text-anchor="middle" fill="#fff" font-size="10" font-weight="800">Nhau che CTC</text>`;
+      s += `<text x="370" y="105" text-anchor="middle" font-size="11.5" font-weight="700" fill="#1e293b">Đoạn dưới tử cung kéo dài & dãn mỏng</text>`;
+      s += `<text x="370" y="125" text-anchor="middle" font-size="11.5" font-weight="700" fill="#dc2626">➔ Bánh nhau không co giãn bị trượt bóc tách</text>`;
+      s += `<text x="370" y="145" text-anchor="middle" font-size="11" fill="#475569">➔ Đứt các xoang mạch diện bám ➔ Máu đỏ tươi không đau</text>`;
+    } else {
+      s += `<rect x="20" y="46" width="250" height="150" rx="14" fill="#f0fdf4" stroke="#16a34a" stroke-width="1.4"/>`;
+      s += `<text x="145" y="72" text-anchor="middle" fill="#15803d" font-family="Outfit, sans-serif" font-size="13" font-weight="800">✓ ĐIỀU KIỆN THUẬN LỢI TOLAC</text>`;
+      s += `<text x="34" y="96" fill="#166534" font-size="11" font-weight="700">• 1 lần mổ ngang đoạn dưới</text>`;
+      s += `<text x="34" y="116" fill="#166534" font-size="11" font-weight="700">• Chỉ định mổ trước không tái diễn</text>`;
+      s += `<text x="34" y="136" fill="#166534" font-size="11" font-weight="700">• Ngôi chỏm, thai đơn, con vừa</text>`;
+      s += `<text x="34" y="156" fill="#166534" font-size="11" font-weight="700">• Từng sinh âm đạo trước đó</text>`;
+
+      s += `<rect x="286" y="46" width="254" height="150" rx="14" fill="#fef2f2" stroke="#dc2626" stroke-width="1.4"/>`;
+      s += `<text x="413" y="72" text-anchor="middle" fill="#991b1b" font-family="Outfit, sans-serif" font-size="13" font-weight="800">🚫 CHỐNG CHỈ ĐỊNH / ĐIỂM CHẶN</text>`;
+      s += `<text x="300" y="96" fill="#7f1d1d" font-size="11" font-weight="700">• Sẹo mổ dọc thân / sẹo chữ T</text>`;
+      s += `<text x="300" y="116" fill="#7f1d1d" font-size="11" font-weight="700">• Tiền căn vỡ tử cung trước đó</text>`;
+      s += `<text x="300" y="136" fill="#7f1d1d" font-size="11" font-weight="700">• Nhau tiền đạo che lỗ trong</text>`;
+      s += `<text x="300" y="156" fill="#7f1d1d" font-size="11" font-weight="700">• Cơ sở KHÔNG có phòng mổ cấp cứu</text>`;
+    }
+  } else if (st.id === 'risk' || st.id === 'explain') {
+    s += `<rect x="20" y="46" width="520" height="150" rx="14" fill="#fff" stroke="#6366f1" stroke-width="1.3"/>`;
+    s += `<text x="280" y="70" text-anchor="middle" font-family="Outfit, sans-serif" font-size="13" font-weight="800" fill="#4338ca">BÀN CÂN NGUY CƠ: MẸ vs THAI NHI</text>`;
+    s += `<rect x="40" y="86" width="200" height="92" rx="10" fill="#fee2e2" stroke="#ef4444" stroke-width="1.2"/>`;
+    s += `<text x="140" y="108" text-anchor="middle" fill="#991b1b" font-family="Outfit, sans-serif" font-size="12" font-weight="800">👩 NGUY CƠ CHO MẸ</text>`;
+    s += `<text x="50" y="128" fill="#7f1d1d" font-size="11">• Mất máu, tụt HA, sốc giảm thể tích</text>`;
+    s += `<text x="50" y="146" fill="#7f1d1d" font-size="11">• Rối loạn đông máu DIC, BHSS</text>`;
+    s += `<text x="50" y="164" fill="#7f1d1d" font-size="11">• Nguy cơ cắt tử cung, tổn thương tạng</text>`;
+    s += `<rect x="320" y="86" width="200" height="92" rx="10" fill="#e0f2fe" stroke="#0284c7" stroke-width="1.2"/>`;
+    s += `<text x="420" y="108" text-anchor="middle" fill="#0369a1" font-family="Outfit, sans-serif" font-size="12" font-weight="800">👶 NGUY CƠ CHO CON</text>`;
+    s += `<text x="330" y="128" fill="#075985" font-size="11">• Thiếu oxy máu cấp, ngạt sơ sinh</text>`;
+    s += `<text x="330" y="146" fill="#075985" font-size="11">• Toan chuyển hóa nặng, tổn thương não</text>`;
+    s += `<text x="330" y="164" fill="#075985" font-size="11">• Sinh non cực độ hoặc tử vong chu sinh</text>`;
+    s += `<circle cx="280" cy="132" r="14" fill="#6366f1"/><text x="280" y="137" text-anchor="middle" fill="#fff" font-size="12">⚖️</text>`;
+  } else if (st.id === 'plan' || st.id === 'choice') {
+    s += `<rect x="20" y="46" width="520" height="150" rx="14" fill="#fff" stroke="#10b981" stroke-width="1.3"/>`;
+    s += `<text x="280" y="68" text-anchor="middle" font-family="Outfit, sans-serif" font-size="13" font-weight="800" fill="#065f46">LƯU ĐỒ XỬ TRÍ 3 LÀN SONG SONG (PARALLEL TRACKS)</text>`;
+    const tracks = [
+      ['LÀN 1: HỒI SỨC MẸ', 'Bù dịch ấm (Ringer/NaCl) · Lấy máu làm phản ứng chéo · Chuẩn bị 2-4 đv Hồng cầu lắng O', '#0284c7', '#f0f9ff'],
+      ['LÀN 2: CHẤM DỨT THAI KỲ', 'Báo kíp mổ cấp cứu (Category 1) · Mổ lấy thai khẩn trương · Không trì hoãn chờ corticoid', '#dc2626', '#fef2f2'],
+      ['LÀN 3: HỒI SỨC SƠ SINH', 'Bác sĩ Nhi sơ sinh sẵn sàng tại phòng mổ · Máy sưởi ấm, bóng bóp, đặt nội khí quản', '#d97706', '#fffbeb']
+    ];
+    tracks.forEach(([t1, t2, col, bg], i) => {
+      const y = 88 + i * 35;
+      s += `<rect x="36" y="${y - 12}" width="488" height="30" rx="8" fill="${bg}" stroke="${col}" stroke-width="1.2"/>`;
+      s += `<text x="48" y="${y + 7}" fill="${col}" font-family="Outfit, sans-serif" font-size="11" font-weight="800">${t1}:</text>`;
+      s += `<text x="200" y="${y + 7}" fill="#334155" font-size="10.5" font-weight="600">${t2}</text>`;
+    });
+  } else if (st.id === 'talk' || st.id === 'close') {
+    s += `<rect x="20" y="46" width="520" height="150" rx="14" fill="#faf5ff" stroke="#9333ea" stroke-width="1.3"/>`;
+    s += `<text x="280" y="68" text-anchor="middle" font-family="Outfit, sans-serif" font-size="13" font-weight="800" fill="#6b21a8">GIAO TIẾP VỚI NGƯỜI BỆNH & TEACH-BACK 2 CHIỀU</text>`;
+    s += `<g transform="translate(36 84)"><rect width="230" height="56" rx="10" fill="#fff" stroke="#c084fc" stroke-width="1.2"/><text x="12" y="20" font-weight="800" font-size="11" fill="#7e22ce">👩‍⚕️ Bác sĩ giải thích & hỏi lại:</text><text x="12" y="38" font-size="10.5" fill="#4a044e">“Chị nhắc lại giúp em 3 dấu hiệu</text><text x="12" y="50" font-size="10.5" fill="#4a044e">nguy hiểm cần gọi cấp cứu ngay nhé?”</text></g>`;
+    s += `<g transform="translate(294 84)"><rect width="230" height="56" rx="10" fill="#fff" stroke="#ec4899" stroke-width="1.2"/><text x="12" y="20" font-weight="800" font-size="11" fill="#be185d">🤰 Sản phụ nhắc lại (Teach-back):</text><text x="12" y="38" font-size="10.5" fill="#831843">“1. Ra máu tái phát · 2. Đau cứng bụng</text><text x="12" y="50" font-size="10.5" fill="#831843">3. Em bé giảm máy hoặc nín đạp!”</text></g>`;
+    s += `<rect x="140" y="152" width="280" height="28" rx="8" fill="#f3e8ff"/><text x="280" y="170" text-anchor="middle" font-size="11" font-weight="700" fill="#581c87">🤝 Thấu cảm · Không hứa hẹn suông · Sẵn sàng phương án</text>`;
+  } else {
+    s += `<rect x="20" y="46" width="520" height="150" rx="14" fill="#fff" stroke="#10b981" stroke-width="1.4"/>`;
+    s += `<text x="280" y="70" text-anchor="middle" font-family="Outfit, sans-serif" font-size="14" font-weight="800" fill="#047857">🏆 HOÀN TẤT TRẠM THI MÔ PHỎNG LÂM SÀNG</text>`;
+    s += `<text x="280" y="96" text-anchor="middle" font-size="34">🎖️</text>`;
+    s += `<text x="280" y="128" text-anchor="middle" font-family="Outfit, sans-serif" font-size="13" font-weight="800" fill="#0f172a">Bạn đã đi qua toàn bộ các bước của trạm!</text>`;
+    s += `<text x="280" y="150" text-anchor="middle" font-size="11.5" fill="#475569">Hãy đối chiếu điểm tự chấm theo 4 nhóm tiêu chí và mở đáp án nguồn bên phải để rút kinh nghiệm.</text>`;
+  }
+  s += `</svg></div>`;
+  return s;
+}
+
+function renderOsceModeSwitcher(cur) {
+  return `<div class="o-mode-switch">
+    <button class="o-mbtn ${cur === 'flowchart' ? 'cur' : ''}" data-omode="flowchart"><i>🧭</i> Bản đồ tư duy lâm sàng</button>
+    <button class="o-mbtn ${cur === 'exam' ? 'cur' : ''}" data-omode="exam"><i>🎙️</i> Thi thử toàn trạm (5 phút)</button>
+    <button class="o-mbtn ${cur === 'steps' ? 'cur' : ''}" data-omode="steps"><i>👣</i> Luyện từng bước & Lời mẫu</button>
+  </div>`;
+}
+
+function renderOscePacing(rem, total = 300) {
+  const elap = Math.max(0, total - rem), pct = Math.min(100, (elap / total) * 100);
+  return `<div class="o-pacing">
+    <div class="o-pacing-h">
+      <span>⏱️ Thanh nhịp thời gian trạm thi 5 phút (Pacing Timeline)</span>
+      <b>Đã dùng: ${Math.floor(elap / 60)}′${String(elap % 60).padStart(2, '0')}″ / 5′00″</b>
+    </div>
+    <div class="o-pacing-track">
+      <div class="o-pacing-seg" style="width:10%;background:#38bdf8" title="0:00 – 0:30: Đọc đề & Bắt 5 điểm neo"></div>
+      <div class="o-pacing-seg" style="width:20%;background:#ef4444" title="0:30 – 1:30: Triage mẹ & Kích hoạt Báo động đỏ"></div>
+      <div class="o-pacing-seg" style="width:20%;background:#f97316" title="1:30 – 2:30: Đọc CTG & Chẩn đoán xác định + lý do"></div>
+      <div class="o-pacing-seg" style="width:20%;background:#eab308" title="2:30 – 3:30: Chỉ định Cận lâm sàng có mục đích"></div>
+      <div class="o-pacing-seg" style="width:20%;background:#22c55e" title="3:30 – 4:30: Phác đồ 3 làn khẩn song song (Mẹ - Thai - Nhi)"></div>
+      <div class="o-pacing-seg" style="width:10%;background:#a855f7" title="4:30 – 5:00: Tư vấn người nhà & Teach-back 2 chiều"></div>
+      <div class="o-pacing-now" id="pacing-now" style="left:${pct}%"></div>
+    </div>
+    <div class="o-pacing-legend">
+      <span class="o-pacing-tag"><i style="background:#38bdf8"></i> 0–30s: 📖 Đọc đề</span>
+      <span class="o-pacing-tag"><i style="background:#ef4444"></i> 30s–1m30: 🚨 Triage & Báo động</span>
+      <span class="o-pacing-tag"><i style="background:#f97316"></i> 1m30–2m30: 🧠 CTG & Chẩn đoán</span>
+      <span class="o-pacing-tag"><i style="background:#eab308"></i> 2m30–3m30: 🧪 CLS có mục đích</span>
+      <span class="o-pacing-tag"><i style="background:#22c55e"></i> 3m30–4m30: 🏥 Phác đồ 3 làn</span>
+      <span class="o-pacing-tag"><i style="background:#a855f7"></i> 4m30–5m: 🤝 Tư vấn & Dặn dò</span>
+    </div>
+  </div>`;
+}
+
+function getStepScript(c, stKey, cf) {
+  const top = cf.topic, kind = cf.kind;
+  if (stKey === 'read') {
+    return `Dạ thưa giám khảo, em dành 30 giây đầu đọc đề và nắm chắc <span class="kw">5 điểm neo then chốt</span>: 1. Tuổi thai (${c.title}); 2. Triệu chứng cơ năng (đau bụng dữ dội hay ra máu đỏ tươi không đau); 3. Sinh hiệu mẹ (Shock Index có >0.9 không); 4. Tình trạng thai (tim thai/CTG bình thường hay suy cấp); 5. Yêu cầu của đề (cấp cứu, chẩn đoán hay tư vấn). Em tuyệt đối <span class="bad">không đọc lan man</span> làm mất thời gian xử trí.`;
+  }
+  if (stKey === 'enter' || stKey === 'open') {
+    if (kind === 'cc') {
+      return `Dạ thưa thầy/cô, vừa bước vào trạm thấy sản phụ trong tình trạng khẩn cấp, em lập tức <span class="kw">LA TO KÍCH HOẠT BÁO ĐỘNG ĐỎ CẤP CỨU SẢN KHOA</span>:<br>
+      <i>“Báo động đỏ sản khoa! Nhờ điều dưỡng đo ngay sinh hiệu mẹ, lập 2 đường truyền lớn kim 18G, truyền dịch ấm Ringer Lactate và lấy máu xét nghiệm khẩn: Công thức máu, Nhóm máu, Phản ứng chéo và Đông máu toàn bộ có định lượng Fibrinogen! Báo ngân hàng máu chuẩn bị sẵn 2 đơn vị hồng cầu lắng O và báo phòng mổ cấp cứu!”</i><br>
+      Đồng thời em trấn an sản phụ: <i>“Chị ơi, em là bác sĩ, tụi em đang tập trung cấp cứu cho chị và bé, chị hít thở đều nhé!”</i>`;
+    } else {
+      return `Dạ em chào chị ạ, em là bác sĩ trực hôm nay. Chị cho em xin họ tên và năm sinh để xác nhận thông tin nhé? Hôm nay chị đến khám vì vấn đề gì, chị có thể chia sẻ cho em nghe được không ạ?`;
+    }
+  }
+  if (stKey === 'assess' || stKey === 'history') {
+    if (top === 'nbn') {
+      return `Em nhận định nhanh: Về phía mẹ, huyết áp dao động, mạch nhanh, tính ngay <span class="kw">Shock Index = HR ÷ HATT > 0.9</span> cảnh giác sốc giảm thể tích tiềm ẩn. Khám bụng: tử cung <span class="kw">co cứng như gỗ</span>, tăng trương lực cơ bản liên tục không có khoảng nghỉ giữa các cơn co. Trên CTG: cơn gò dồn dập kèm <span class="kw">nhịp giảm muộn (Late deceleration) lặp lại</span> ➔ Thai đang thiếu oxy cấp nghiêm trọng! Tuyệt đối <span class="bad">không loại trừ NBN chỉ vì ra ít máu</span> vì máu tụ sau nhau bóc tách âm thầm.`;
+    } else if (top === 'ntd') {
+      return `Em xác nhận tuổi thai và tình trạng ra máu đỏ tươi từ âm đạo. <span class="bad">TUYỆT ĐỐI CẤM THĂM ÂM ĐẠO BẰNG NGÓN TAY</span> vì ngón tay có thể chọc thủng bánh nhau bám ở đoạn dưới gây xuất huyết ồ ạt tử vong! Em đặt mỏ vịt nhẹ nhàng bộc lộ CTC thấy máu đỏ tươi chảy ra từ lỗ trong. Đánh giá cơn gò: cơn gò chuyển dạ làm kéo dãn đoạn dưới tử cung trượt diện bám bánh nhau. Khảo sát tiền căn sẹo mổ cũ: nếu có sẹo mổ cũ kèm nhau bám thấp mặt trước thì <span class="kw">báo động đỏ nguy cơ Nhau cài răng lược (PAS)</span>.`;
+    } else {
+      return `Em khai thác 4 điều kiện vàng: 1. Lý do mổ cũ là gì (ngôi mông / thai suy... là nguyên nhân không tái diễn ➔ ĐẠT); 2. <span class="kw">ĐƯỜNG RẠCH CƠ TỬ CUNG LÀ ĐƯỜNG NÀO?</span> Em xin phép xem giấy xuất viện hoặc biên bản mổ cũ (<span class="bad">tuyệt đối không đoán vết rạch tử cung từ sẹo da ngoài bụng</span>; chỉ sẹo ngang đoạn dưới mới được thử chuyển dạ, sẹo dọc thân/chữ T là chống chỉ định tuyệt đối); 3. Khoảng cách lần mổ trước > 18–24 tháng; 4. Thai kỳ hiện tại: thai đơn, ngôi chỏm, con ước lượng vừa (<3500g).`;
+    }
+  }
+  if (stKey === 'dx' || stKey === 'analyze') {
+    if (top === 'nbn') {
+      return `Chẩn đoán xác định của em: <span class="kw">Nhau bong non thể nặng, có biến chứng suy thai cấp đe dọa tử vong chu sinh</span>. Lý do: tam chứng kinh điển gồm đau bụng đột ngột dữ dội liên tục, tử cung co cứng tăng trương lực nền, và CTG có nhịp giảm muộn kéo dài. Phân biệt với Nhau tiền đạo (chảy máu đỏ tươi không đau bụng, tử cung mềm) và Vỡ tử cung (thường có sẹo mổ cũ, mất tim thai đột ngột, bụng đề kháng).`;
+    } else if (top === 'ntd') {
+      return `Chẩn đoán xác định của em: <span class="kw">Nhau tiền đạo (trung tâm/bán trung tâm) đang ra huyết</span>. Đánh giá mức độ: mẹ hiện tại chưa sốc / đã sốc mất máu; có cơn co chuyển dạ phối hợp; cần loại trừ PAS nếu có tiền căn sẹo mổ lấy thai cũ.`;
+    } else {
+      return `Em phân tích: Sản phụ đủ điều kiện thực hiện <span class="kw">TOLAC (Thử thách sinh ngả âm đạo sau mổ cũ)</span> do có 1 vết mổ ngang đoạn dưới vì nguyên nhân không tái diễn, thai đơn ngôi chỏm, con ước lượng vừa, không có chống chỉ định sinh ngả âm đạo.`;
+    }
+  }
+  if (stKey === 'risk' || stKey === 'explain') {
+    if (top === 'nbn' || top === 'ntd') {
+      return `Em nêu rõ nguy cơ tách biệt cho cả mẹ và con:<br>
+      • <span class="kw">Nguy cơ cho con:</span> Thiếu oxy cấp tính dẫn đến ngạt nặng, toan chuyển hóa không hồi phục, tổn thương não và tử vong chu sinh dù có mổ khẩn.<br>
+      • <span class="kw">Nguy cơ cho mẹ:</span> Mất máu ồ ạt, sốc giảm thể tích, băng huyết sau sinh do đờ tử cung (đặc biệt là Phong huyết tử cung - nhau Couvelaire), <span class="bad">Rối loạn đông máu nội mạch lan tỏa (DIC)</span>, suy thận cấp và nguy cơ phải cắt tử cung cấp cứu.`;
+    } else {
+      return `Em giải thích bằng lời đời thường: TOLAC là quá trình thử sinh thường sau khi đã có vết mổ cũ. Nếu sinh thường thành công thì gọi là VBAC. Lợi ích là tránh được cuộc đại phẫu, ít mất máu, hồi phục nhanh và giảm nguy cơ cho lần mang thai sau. Tuy nhiên, nguy cơ lớn nhất là <span class="bad">nứt hoặc vỡ vết mổ cũ (~0.5% theo RCOG)</span>, và có thể phải chuyển mổ cấp cứu trong chuyển dạ nếu thai suy hoặc chuyển dạ ngưng tiến.`;
+    }
+  }
+  if (stKey === 'plan' || stKey === 'choice') {
+    if (top === 'nbn') {
+      return `Em kích hoạt ngay <span class="kw">PHÁC ĐỒ 3 LÀN SONG SONG</span>:<br>
+      - <b>Làn 1 (Hồi sức mẹ):</b> 2 kim lớn 18G, truyền dịch ấm Ringer Lactate, bù hồng cầu lắng và kết tủa lạnh nếu Fibrinogen < 2 g/L.<br>
+      - <b>Làn 2 (Chấm dứt thai kỳ):</b> Thai sống đang suy cấp ➔ <span class="kw">MỔ LẤY THAI CẤP CỨU TỐI KHẨN (Category 1)</span> trong 15–30 phút. Chuẩn bị sẵn phương án xử trí Đờ tử cung do Phong huyết Couvelaire: oxytocin liều cao, chuẩn bị Carboprost, bóng chèn Bakri và may B-Lynch. Tuyệt đối <span class="bad">không cho thuốc giảm co thường quy</span> và <span class="bad">không chờ đợi hồi sức xong hẳn mới chuẩn bị mổ</span>.<br>
+      - <b>Làn 3 (Hồi sức sơ sinh):</b> Bác sĩ Nhi - Sơ sinh túc trực phòng mổ với lồng ấp ấm, bóng bóp oxy và bộ đặt nội khí quản.`;
+    } else if (top === 'ntd') {
+      return `Xử trí: Nếu ra máu ồ ạt hoặc mẹ/thai bất ổn ➔ <span class="kw">Mổ cấp cứu ngay lập tức bất kể tuổi thai, không chờ tiêm corticoid</span>. Nếu thai đủ tháng (≥37 tuần) hoặc nhau tiền đạo trung tâm ➔ Mổ lấy thai chủ động theo kế hoạch. Nếu non tháng (<34 tuần) và máu đã tự cầm ➔ Dưỡng thai tại viện, tiêm Corticoid trưởng thành phổi, MgSO4 bảo vệ thần kinh nếu <32 tuần, xét nghiệm nhóm máu dự trù sẵn.`;
+    } else {
+      return `Kế hoạch: Đồng thuận thử chuyển dạ (TOLAC) với sản phụ và thân nhân. Điều kiện bắt buộc là theo dõi chuyển dạ tại <span class="kw">cơ sở có khả năng phẫu thuật mổ cấp cứu trong vòng 15–30 phút</span> (có sẵn kíp mổ, gây mê, hồi sức sơ sinh và máu). Mắc monitor theo dõi tim thai và cơn gò liên tục. Nếu có dấu hiệu dọa vỡ (đau vết mổ ngoài cơn gò, nhịp tim thai bất thường đột ngột) ➔ Chuyển mổ khẩn ngay!`;
+    }
+  }
+  if (stKey === 'talk' || stKey === 'close') {
+    return `Em giao tiếp với sản phụ và người nhà: Dùng từ ngữ đời thường dễ hiểu, thái độ thấu cảm, giải thích rõ tình trạng nguy kịch và kế hoạch cấp cứu khẩn trương của ê-kíp mà <span class="bad">không bao giờ hứa hẹn chắc chắn 100%</span>. Đồng thời thực hiện <span class="kw">Teach-back 2 chiều</span>: “Chị/anh nhắc lại giúp em 3 dấu hiệu nguy hiểm cần báo bác sĩ ngay nhé?” (1. Ra máu tái phát; 2. Đau bụng co cứng liên tục; 3. Em bé giảm máy hoặc nín đạp).`;
+  }
+  return `Đối chiếu lại với rubric và đáp án nguồn để rút kinh nghiệm lâm sàng.`;
+}
+
+function getFullStationScript(c, cf) {
+  const top = cf.topic, kind = cf.kind;
+  return `<div class="o-script-card">
+    <div class="sh">
+      <b>🎙️ KỊCH BẢN NÓI MẪU TOÀN TRẠM CỦA THỦ KHOA (5 PHÚT THỰC CHIẾN)</b>
+      <span class="badge good">Chuẩn Y4 ĐHYD</span>
+    </div>
+    <div class="o-script-body">
+      <p><b>⏱️ PHÚT 0:00 – 1:00: VÀO TRẠM & BÁO ĐỘNG ĐỎ</b><br>
+      ${getStepScript(c, 'enter', cf)}</p>
+
+      <p><b>⏱️ PHÚT 1:00 – 2:00: NHẬN ĐỊNH LÂM SÀNG & ĐỌC CTG</b><br>
+      ${getStepScript(c, 'assess', cf)}</p>
+
+      <p><b>⏱️ PHÚT 2:00 – 2:45: CHẨN ĐOÁN XÁC ĐỊNH & LÝ DO</b><br>
+      ${getStepScript(c, 'dx', cf)}</p>
+
+      <p><b>⏱️ PHÚT 2:45 – 3:30: BÀN CÂN NGUY CƠ MẸ & THAI</b><br>
+      ${getStepScript(c, 'risk', cf)}</p>
+
+      <p><b>⏱️ PHÚT 3:30 – 4:30: PHÁC ĐỒ XỬ TRÍ 3 LÀN SONG SONG</b><br>
+      ${getStepScript(c, 'plan', cf)}</p>
+
+      <p><b>⏱️ PHÚT 4:30 – 5:00: TƯ VẤN THÂN NHÂN & TEACH-BACK</b><br>
+      ${getStepScript(c, 'talk', cf)}</p>
+    </div>
+  </div>`;
+}
+
+function renderOsceFlowchart(c, cf) {
+  const top = cf.topic;
+  if (top === 'nbn') {
+    return `<div class="o-flowchart">
+      <div class="o-fc-head">
+        <span class="st-ic" style="font-size:24px">🌩️</span>
+        <div>
+          <h3>Bản đồ Tư duy Lâm sàng: NHAU BONG NON (Abruptio Placentae)</h3>
+          <span class="badge extra">Chuỗi Phản xạ Cấp cứu Sản khoa Y4 ĐHYD</span>
+        </div>
+      </div>
+      <div class="o-fc-tree">
+        <div class="o-fc-node root">
+          <div class="o-fc-title"><span>🚨 BƯỚC 1: TIẾP NHẬN & NHẬN DIỆN TRIỆU CHỨNG SỚM</span><span class="o-fc-badge" style="background:#dbeafe;color:#1e40af">Khởi động</span></div>
+          <p class="o-fc-desc">Sản phụ tam cá nguyệt 3 (hoặc có tiền sản giật / chấn thương / song thai) đột ngột <b>đau bụng dữ dội liên tục</b>, tử cung co cứng, âm đạo ra huyết sậm màu loãng không đông.</p>
+        </div>
+        <div class="o-fc-node warn">
+          <div class="o-fc-title"><span>📊 BƯỚC 2: TRIAGE MẸ & THEO DÕI CTG / MONITOR</span><span class="o-fc-badge" style="background:#fef3c7;color:#92400e">Đánh giá</span></div>
+          <p class="o-fc-desc">
+            • <b>Mẹ:</b> Tính ngay <b>Shock Index = HR ÷ HATT</b> (> 0.9 là báo động sốc). <i>Cảnh giác: Lượng máu chảy ngoài ít KHÔNG phản ánh mức độ nặng vì máu tụ sau nhau bóc tách âm thầm!</i><br>
+            • <b>Khám bụng:</b> Tử cung co cứng liên tục như gỗ (Tăng trương lực cơ bản, không có khoảng nghỉ giữa các cơn co).<br>
+            • <b>CTG / Tim thai:</b> Gò cường tính dồn dập + Nhịp giảm muộn (Late deceleration) lặp lại hoặc nhịp tim thai chậm kéo dài (Suy thai cấp tối khẩn!).
+          </p>
+        </div>
+        <div class="o-fc-node stop">
+          <div class="o-fc-title"><span>🚫 ĐIỂM CHẶN SỐNG CÒN (HARD STOP / RED FLAGS)</span><span class="o-fc-badge" style="background:#fee2e2;color:#991b1b">Tuyệt đối cấm</span></div>
+          <p class="o-fc-desc">
+            1. <b>KHÔNG BAO GIỜ loại trừ NBN</b> chỉ vì âm đạo ra ít máu hoặc siêu âm “chưa thấy khối máu tụ” (Siêu âm chỉ phát hiện ~25-50% trường hợp cấp; NBN là chẩn đoán lâm sàng!).<br>
+            2. <b>CẤM dùng thuốc giảm co (Tocolytics)</b> thường quy khi đã nghi ngờ NBN thể nặng.
+          </p>
+        </div>
+        <div class="o-fc-node purple">
+          <div class="o-fc-title"><span>🔀 BƯỚC 3: CÂY QUYẾT ĐỊNH ĐƯỜNG CHẤM DỨT THAI KỲ (DECISION FORK)</span><span class="o-fc-badge" style="background:#f3e8ff;color:#6b21a8">Chiến lược</span></div>
+          <div class="o-fc-fork">
+            <div class="o-fc-node danger" style="margin:0">
+              <div class="o-fc-title"><span style="color:#dc2626">NHÁNH A: THAI SỐNG + SUY THAI CẤP (CTG CAT III)</span></div>
+              <p class="o-fc-desc">
+                ➔ <b>MỔ LẤY THAI CẤP CỨU TỐI KHẨN (Category 1)</b>.<br>
+                • Mục tiêu: Đưa thai ra trong <b>15–30 phút</b> để cứu sống con và cầm máu mẹ.<br>
+                • Báo động kíp phẫu thuật, bác sĩ gây mê hồi sức và bác sĩ Nhi - Sơ sinh vào ngay phòng mổ.
+              </p>
+            </div>
+            <div class="o-fc-node act" style="margin:0">
+              <div class="o-fc-title"><span style="color:#15803d">NHÁNH B: THAI LƯU + MẸ HUYẾT ĐỘNG ỔN ĐỊNH</span></div>
+              <p class="o-fc-desc">
+                ➔ <b>Ưu tiên sinh ngả âm đạo có kiểm soát</b>.<br>
+                • <b>Bấm ối khẩn:</b> Giảm áp lực buồng tử cung (ngừa thuyên tắc ối & hạn chế giải phóng thromboplastin gây DIC).<br>
+                • Truyền Oxytocin tăng co tích cực để sinh nhanh. Nếu mẹ diễn tiến sốc hoặc băng huyết ➔ Chuyển mổ khẩn.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="o-fc-node act">
+          <div class="o-fc-title"><span>🏥 BƯỚC 4: PHÁC ĐỒ 3 LÀN KHẨN SONG SONG (PARALLEL TRACKS)</span><span class="o-fc-badge" style="background:#dcfce7;color:#166534">Xử trí</span></div>
+          <p class="o-fc-desc">
+            • <b>Làn 1 (Hồi sức mẹ):</b> 2 đường truyền lớn 16–18G, truyền dịch ấm Ringer Lactate, xét nghiệm khẩn (CTM, Nhóm máu, Phản ứng chéo, Đông máu toàn bộ có Fibrinogen). Bù Fibrinogen (kết tủa lạnh) nếu < 2 g/L, truyền hồng cầu lắng nếu mất máu nặng.<br>
+            • <b>Làn 2 (Chấm dứt thai & Dự phòng PPH):</b> Mổ lấy thai. Cảnh giác <b>Phong huyết tử cung - nhau (Tử cung Couvelaire)</b> gây đờ tử cung mất trương lực ➔ Chuẩn bị sẵn Oxytocin liều cao, Carboprost, bóng chèn Bakri, may B-Lynch, sẵn sàng cắt tử cung nếu chảy máu không cầm.<br>
+            • <b>Làn 3 (Bác sĩ Nhi):</b> Đội ngũ hồi sức sơ sinh túc trực phòng mổ, sẵn sàng đặt nội khí quản, hút đờm, sưởi ấm, chống toan chuyển hóa.
+          </p>
+        </div>
+        <div class="o-fc-node root">
+          <div class="o-fc-title"><span>🤝 BƯỚC 5: TƯ VẤN NGƯỜI NHÀ & TEACH-BACK 2 CHIỀU</span><span class="o-fc-badge" style="background:#e0e7ff;color:#3730a3">Giao tiếp</span></div>
+          <p class="o-fc-desc">Dùng ngôn ngữ đời thường, thấu cảm, giải thích nguy kịch nhưng không giấu giếm, nói rõ ê-kíp đang hành động khẩn trương và hẹn cập nhật liên tục.</p>
+        </div>
+      </div>
+    </div>`;
+  }
+  if (top === 'ntd') {
+    return `<div class="o-flowchart">
+      <div class="o-fc-head">
+        <span class="st-ic" style="font-size:24px">🥧</span>
+        <div>
+          <h3>Bản đồ Tư duy Lâm sàng: NHAU TIỀN ĐẠO & PAS</h3>
+          <span class="badge extra">Chuỗi Phản xạ Cấp cứu Sản khoa Y4 ĐHYD</span>
+        </div>
+      </div>
+      <div class="o-fc-tree">
+        <div class="o-fc-node root">
+          <div class="o-fc-title"><span>🚨 BƯỚC 1: TIẾP NHẬN & NHẬN DIỆN TRIỆU CHỨNG SỚM</span><span class="o-fc-badge" style="background:#dbeafe;color:#1e40af">Khởi động</span></div>
+          <p class="o-fc-desc">Sản phụ 3 tháng cuối đột ngột <b>ra máu đỏ tươi tự nhiên từ âm đạo, KHÔNG ĐAU BỤNG</b>. Máu có thể tự cầm rồi tái phát với lượng nhiều hơn.</p>
+        </div>
+        <div class="o-fc-node stop">
+          <div class="o-fc-title"><span>🚫 ĐIỂM CHẶN SỐNG CÒN (CRITICAL RED LINE)</span><span class="o-fc-badge" style="background:#fee2e2;color:#991b1b">Tuyệt đối cấm</span></div>
+          <p class="o-fc-desc">
+            • <b>TUYỆT ĐỐI CẤM THĂM ÂM ĐẠO BẰNG NGÓN TAY!</b><br>
+            <i>Lý do: Ngón tay đưa qua lỗ trong CTC có thể chọc thủng bánh nhau bám ở đoạn dưới gây xuất huyết ồ ạt dẫn đến tử vong mẹ và thai trong vài phút!</i><br>
+            • <b>Khám an toàn:</b> Đặt mỏ vịt bộc lộ CTC nhẹ nhàng để kiểm tra nguồn máu + Siêu âm ngả âm đạo (TVS) an toàn.
+          </p>
+        </div>
+        <div class="o-fc-node warn">
+          <div class="o-fc-title"><span>🔍 BƯỚC 2: ĐÁNH GIÁ CHUYỂN DẠ & NGUY CƠ PAS (NHAU CÀI RĂNG LƯỢC)</span><span class="o-fc-badge" style="background:#fef3c7;color:#92400e">Đánh giá</span></div>
+          <p class="o-fc-desc">
+            • <b>Có cơn co chuyển dạ không?</b> Cơn co kéo dãn đoạn dưới tử cung làm trượt diện bám bánh nhau gây chảy máu.<br>
+            • <b>Có sẹo mổ cũ không?</b> Tiền căn mổ lấy thai cũ + Nhau bám mặt trước đoạn dưới ➔ <b>Báo động đỏ PAS!</b> Cần hội chẩn đa chuyên khoa, dự trù máu lớn.
+          </p>
+        </div>
+        <div class="o-fc-node purple">
+          <div class="o-fc-title"><span>🔀 BƯỚC 3: CÂY QUYẾT ĐỊNH XỬ TRÍ (DECISION FORK)</span><span class="o-fc-badge" style="background:#f3e8ff;color:#6b21a8">Chiến lược</span></div>
+          <div class="o-fc-fork">
+            <div class="o-fc-node danger" style="margin:0">
+              <div class="o-fc-title"><span style="color:#dc2626">NHÁNH A: MÁU Ồ ẠT / SỐC / SUY THAI</span></div>
+              <p class="o-fc-desc">➔ <b>HỒI SỨC + MỔ LẤY THAI CẤP CỨU NGAY LẬP TỨC</b>, bất kể tuổi thai, không trì hoãn chờ tiêm corticoid!</p>
+            </div>
+            <div class="o-fc-node act" style="margin:0">
+              <div class="o-fc-title"><span style="color:#15803d">NHÁNH B: ĐỦ THÁNG (≥37W) HOẶC NTĐ TRUNG TÂM</span></div>
+              <p class="o-fc-desc">➔ <b>MỔ LẤY THAI CHỦ ĐỘNG THEO KẾ HOẠCH</b> (UMP 37–38 tuần; RCOG ≤37+6). Chuẩn bị máu, phòng mổ và bác sĩ mổ kinh nghiệm.</p>
+            </div>
+          </div>
+        </div>
+        <div class="o-fc-node root">
+          <div class="o-fc-title"><span>🤝 BƯỚC 4: TƯ VẤN & TEACH-BACK 2 CHIỀU</span><span class="o-fc-badge" style="background:#e0e7ff;color:#3730a3">Giao tiếp</span></div>
+          <p class="o-fc-desc">Dùng lời đời thường giải thích cơ chế chảy máu do đoạn dưới dãn nở. Dặn dò 3 dấu hiệu nguy hiểm cần vào viện ngay: 1. Ra máu lại; 2. Đau cứng bụng; 3. Thai giảm đạp.</p>
+        </div>
+      </div>
+    </div>`;
+  }
+  return `<div class="o-flowchart">
+    <div class="o-fc-head">
+      <span class="st-ic" style="font-size:24px">💬</span>
+      <div>
+        <h3>Bản đồ Tư duy Lâm sàng: TOLAC / VBAC (Sinh Sau Mổ Cũ)</h3>
+        <span class="badge extra">Chuỗi Tư Vấn & Ra Quyết Định Y4 ĐHYD</span>
+      </div>
+    </div>
+    <div class="o-fc-tree">
+      <div class="o-fc-node root">
+        <div class="o-fc-title"><span>🙋 BƯỚC 1: TIẾP NHẬN MONG MUỐN CỦA SẢN PHỤ</span><span class="o-fc-badge" style="background:#dbeafe;color:#1e40af">Khởi động</span></div>
+        <p class="o-fc-desc">Sản phụ 39–40 tuần có tiền căn 1 lần mổ lấy thai cũ đến khám và bày tỏ mong muốn: <i>“Lần này em có sinh thường được không bác sĩ?”</i></p>
+      </div>
+      <div class="o-fc-node warn">
+        <div class="o-fc-title"><span>🔍 BƯỚC 2: KHẢO SÁT 4 ĐIỀU KIỆN VÀNG</span><span class="o-fc-badge" style="background:#fef3c7;color:#92400e">Đánh giá</span></div>
+        <p class="o-fc-desc">
+          1. <b>Lý do mổ cũ:</b> Không tái diễn (ngôi mông, thai suy, nhau tiền đạo... ➔ ĐẠT). Khung chậu hẹp tuyệt đối ➔ KHÔNG ĐẠT.<br>
+          2. <b>Đường rạch tử cung:</b> Sẹo ngang đoạn dưới (BẮT BUỘC XIN BIÊN BẢN MỔ / GIẤY RA VIỆN; sẹo dọc thân / chữ T ➔ CHỐNG CHỈ ĐỊNH TUYỆT ĐỐI vì nguy cơ vỡ tử cung 4–9%!).<br>
+          3. <b>Khoảng cách 2 lần sinh:</b> Khuyến cáo > 18–24 tháng.<br>
+          4. <b>Thai kỳ hiện tại:</b> Thai đơn, ngôi chỏm, con vừa (<3500g), không có nhau tiền đạo, mẹ ổn định.
+        </p>
+      </div>
+      <div class="o-fc-node purple">
+        <div class="o-fc-title"><span>⚖️ BƯỚC 3: TƯ VẤN CÂN BẰNG LỢI ÍCH & NGUY CƠ (SHARED DECISION)</span><span class="o-fc-badge" style="background:#f3e8ff;color:#6b21a8">Cân nhắc</span></div>
+        <p class="o-fc-desc">
+          • <b>Tỷ lệ thành công:</b> 60–80% sinh thường thành công (VBAC).<br>
+          • <b>Lợi ích:</b> Tránh cuộc mổ lớn, hồi phục nhanh, ít mất máu, giảm nguy cơ dính ruột và PAS cho lần mang thai sau.<br>
+          • <b>Nguy cơ:</b> Nguy cơ nứt/vỡ sẹo mổ tử cung khoảng <b>0.5% (theo RCOG GTG45 2015)</b> ở chuyển dạ tự nhiên; tăng 2–3 lần nếu giục sinh/tăng co.
+        </p>
+      </div>
+      <div class="o-fc-node act">
+        <div class="o-fc-title"><span>🛡️ BƯỚC 4: QUY TẮC AN TOÀN SỐNG CÒN KHI THỬ CHUYỂN DẠ</span><span class="o-fc-badge" style="background:#dcfce7;color:#166534">An toàn</span></div>
+        <p class="o-fc-desc">
+          • Chỉ thực hiện tại cơ sở có khả năng phẫu thuật cấp cứu trong vòng <b>15–30 phút</b> (sẵn kíp mổ, gây mê, hồi sức sơ sinh và máu).<br>
+          • Monitoring tim thai và cơn co liên tục suốt chuyển dạ. Dấu hiệu sớm nhất của vỡ tử cung là <b>nhịp tim thai bất thường đột ngột</b> trên CTG.
+        </p>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderOsceExamView(c, cf, steps, ticks, pct) {
+  const top = cf.topic, kind = cf.kind;
+  const official = window.OFFICIAL_RUBRIC;
+  const rubricRows = [
+    { id: 'r1', name: '1. Thái độ cấp cứu & Tác phong ban đầu', pts: 1.0, desc: 'La to gọi hỗ trợ, báo động đỏ, phân công kíp trực, lập 2 kim 18G, mắc monitor, lấy máu khẩn' },
+    { id: 'r2', name: '2. Giao tiếp với sản phụ & thân nhân', pts: 1.0, desc: 'Chào hỏi, đồng cảm, giải thích trấn an ngắn gọn, không dùng biệt ngữ, không hứa hẹn suông' },
+    { id: 'r3', name: '3. Nhận định sinh hiệu & CTG / Triệu chứng', pts: 2.0, desc: 'Shock Index > 0.9, tử cung co cứng như gỗ, nhận định nhịp giảm muộn (Late decel) hoặc nhịp chậm trên CTG' },
+    { id: 'r4', name: '4. Chẩn đoán xác định kèm lý do từ đề', pts: 2.0, desc: 'Chẩn đoán đúng bệnh cảnh + mức độ nặng + biến chứng suy thai, nêu đủ lý do từ dữ kiện đề, phân biệt NTĐ/vỡ TC' },
+    { id: 'r5', name: '5. Đề nghị Cận lâm sàng có mục đích', pts: 1.0, desc: 'CTM (thiếu máu), Nhóm máu & Phản ứng chéo (dự trù máu), Đông máu toàn bộ có Fibrinogen (tầm soát DIC)' },
+    { id: 'r6', name: '6. Phác đồ xử trí 3 làn khẩn song song', pts: 2.0, desc: 'Làn 1 hồi sức dịch máu mẹ + Làn 2 mổ cấp cứu Cat 1 & dự phòng đờ TC Couvelaire + Làn 3 hồi sức sơ sinh Nhi' },
+    { id: 'r7', name: '7. Tư vấn người nhà & Teach-back 2 chiều', pts: 1.0, desc: 'Giải thích lời đời thường, dặn dò 3 dấu hiệu báo động (ra máu lại, đau bụng, thai giảm máy) + kiểm tra hiểu' }
+  ];
+
+  const totalPossible = rubricRows.reduce((sum, r) => sum + r.pts, 0);
+  const checkedRows = new Set(state.rubrics[c.id + '_exam'] || []);
+  const currentScore = rubricRows.filter(r => checkedRows.has(r.id)).reduce((sum, r) => sum + r.pts, 0);
+  const scorePercent = Math.round((currentScore / totalPossible) * 100);
+
+  let ratingBadge = '';
+  if (currentScore >= 8.5) ratingBadge = `<span class="badge good" style="font-size:13px">🌟 ĐẠT XUẤT SẮC (Thủ khoa)</span>`;
+  else if (currentScore >= 7.0) ratingBadge = `<span class="badge extra" style="font-size:13px">👏 ĐẠT GIỎI</span>`;
+  else if (currentScore >= 5.0) ratingBadge = `<span class="badge" style="font-size:13px;background:#fef3c7;color:#92400e">👍 ĐẠT YÊU CẦU</span>`;
+  else ratingBadge = `<span class="badge" style="font-size:13px;background:#fee2e2;color:#991b1b">⚠️ CẦN RÀ SOÁT LẠI</span>`;
+
+  return `<div class="o-exam-layout">
+    <div class="o-exam-left">
+      <div class="o-exam-timer-card">
+        <div>
+          <span style="font:800 12px var(--disp);text-transform:uppercase;color:#93c5fd;display:block">Đồng hồ thi trạm 5 phút</span>
+          <div class="o-exam-clock" id="exam-clock">${timeText()}</div>
+        </div>
+        <div class="o-exam-btns">
+          <button id="exam-timer-toggle" class="btn ${timerRunning ? 'flat' : 'primary'}" style="background:${timerRunning ? '#475569' : '#0284c7'};color:#fff">
+            ${timerRunning ? '⏸ Tạm dừng' : '▶ Bắt đầu thi'}
+          </button>
+          <button id="exam-timer-reset" class="btn flat" style="color:#cbd5e1;border:1px solid #475569">↺ Đặt lại</button>
+        </div>
+      </div>
+
+      ${renderOscePacing(remaining)}
+
+      <figure class="fig o-case" style="margin:0">
+        <div class="o-top">
+          <span class="badge ${cf.kind === 'tv' ? 'extra' : 'good'}">${cf.kind === 'tv' ? '💬 Trạm tư vấn' : '🚨 Trạm cấp cứu'}</span>
+          <span class="status-note">${e(c.source?.examLabel || '')} · ⏱️ 5 phút</span>
+        </div>
+        <h2 class="o-title">${cf.icon} ${e(c.title)}</h2>
+        <ul class="o-facts">${cf.facts.map(([a, b]) => `<li><b>${e(a)}</b>${e(b)}</li>`).join('')}</ul>
+        ${c.vitals ? `<p class="vitals">${e(c.vitals)}</p>` : ''}
+        <details class="deep" open>
+          <summary>📄 Đề gốc (bản nhớ lại của sinh viên)</summary>
+          <div class="deep-body">
+            <p>${e(c.stem).replace(/\n/g, '<br>')}</p>
+            ${(c.originalQuestions || []).length ? `<p><b>Câu hỏi trạm:</b><br>${c.originalQuestions.map(q => '• ' + e(typeof q === 'string' ? q : q.text || q.prompt || '')).join('<br>')}</p>` : ''}
+          </div>
+        </details>
+      </figure>
+
+      <details class="deep" open>
+        <summary>🎙️ Xem Kịch bản nói mẫu chuẩn Y4 ĐHYD (Bấm để gập/mở)</summary>
+        <div class="deep-body">
+          ${getFullStationScript(c, cf)}
+        </div>
+      </details>
+    </div>
+
+    <div class="o-exam-right">
+      <div class="o-rubric-card">
+        <div class="o-rc-head">
+          <div>
+            <h3>Checklist Rubric Chấm Điểm Thi Thật</h3>
+            <small style="color:var(--muted);font-weight:700">Tự tick điểm theo lời bạn nói được trong 5 phút</small>
+          </div>
+          <div class="o-rc-score">
+            <span>${currentScore.toFixed(1)}</span>
+            <small>/ ${totalPossible.toFixed(1)} đ</small>
+          </div>
+        </div>
+
+        <div style="margin-bottom:12px;display:flex;align-items:center;justify-content:space-between">
+          ${ratingBadge}
+          <span style="font:800 13px var(--disp);color:var(--muted)">Đạt ${scorePercent}% thang điểm</span>
+        </div>
+
+        <div class="o-rubric-list">
+          ${rubricRows.map(r => {
+            const isChecked = checkedRows.has(r.id);
+            return `<label class="o-rubric-item ${isChecked ? 'checked' : ''}">
+              <input type="checkbox" data-rubric-row="${r.id}" ${isChecked ? 'checked' : ''}>
+              <div class="o-rubric-item-body">
+                <div style="display:flex;justify-content:space-between;align-items:baseline">
+                  <span class="o-rubric-item-txt">${e(r.name)}</span>
+                  <span class="o-rubric-item-pts">+${r.pts.toFixed(1)}đ</span>
+                </div>
+                <small style="color:#64748b;font-size:11.5px">${e(r.desc)}</small>
+              </div>
+            </label>`;
+          }).join('')}
+        </div>
+
+        <button class="btn pink" id="exam-answer-toggle" style="margin-top:10px;width:100%">Mở đáp án nguồn & đối chiếu ↗</button>
+      </div>
+
+      <section id="case-answer-exam" hidden>
+        ${renderCaseAnswer(c, arr(getAnswer(c)), c.answerReview || {})}
+      </section>
+    </div>
+  </div>`;
+}
+
 function renderCase(id) {
   const c = (window.OSCE_CASES || []).find(x => x.id === id); if (!c) { renderNotFound(); return; }
-  if (currentCaseId !== id) { stopTimer(); remaining = (c.minutes || 5) * 60; currentCaseId = id; oStep = 0; oShown = new Set(); }
+  if (currentCaseId !== id) { stopTimer(); remaining = (c.minutes || 5) * 60; currentCaseId = id; oStep = 0; oHidden = new Set(); }
   const { cf, steps, total } = stepsFor(c), ticks = new Set(state.rubrics[c.id] || []), st = steps[oStep], last = oStep === steps.length - 1;
   const pct = () => Math.round((state.rubrics[c.id] || []).length / Math.max(1, total) * 100);
-  const stepBar = `<div class="o-steps">${steps.map((s, i) => { const its = s.items, done = its.length && its.every(x => ticks.has(x.i)); return `<button class="o-step ${i === oStep ? 'cur' : ''} ${done ? 'done' : ''}" data-st="${i}" title="${e(s.t)}"><span>${done ? '✓' : s.icon}</span><i>${i + 1}</i></button>`; }).join('')}</div>`;
-  const facts = `<ul class="o-facts">${cf.facts.map(([a, b]) => `<li><b>${e(a)}</b>${e(b)}</li>`).join('')}</ul>`;
-  const timer = `<div class="o-timer"><span class="timer" id="timer">${timeText()}</span><button id="timer-toggle" class="btn small">${timerRunning ? '⏸ Dừng' : '▶ Bắt đầu 5′'}</button><button id="timer-reset" class="btn small flat">↺</button></div>`;
-  const stem = `<details class="deep"><summary>📄 Đề gốc (bản nhớ lại)</summary><div class="deep-body"><p>${e(c.stem).replace(/\n/g, '<br>')}</p>${(c.originalQuestions || []).length ? `<p><b>Câu hỏi:</b><br>${c.originalQuestions.map(q => '• ' + e(typeof q === 'string' ? q : q.text || q.prompt || '')).join('<br>')}</p>` : ''}<p class="status-note">${e(c.source?.file || '')}${c.source?.pages ? ' · trang ' + e(arr(c.source.pages).join(', ')) : ''}</p></div></details>`;
-  const left = `<figure class="fig o-case"><div class="o-top"><span class="badge ${cf.kind === 'tv' ? 'extra' : 'good'}">${cf.kind === 'tv' ? '💬 Trạm tư vấn' : '🚨 Trạm cấp cứu'}</span><span class="status-note">${e(c.source?.examLabel || '')}</span></div><h2 class="o-title">${cf.icon} ${e(c.title)}</h2>${facts}${c.vitals ? `<p class="vitals">${e(c.vitals)}</p>` : ''}${timer}${stem}</figure>`;
-  let right = '';
-  if (!last) {
-    const done = st.items.filter(x => ticks.has(x.i)).length, shown = oShown.has(oStep);
-    right = `<div class="o-panel"><div class="o-ph"><span class="o-pic">${st.icon}</span><div><h3>${oStep + 1}. ${e(st.t)}</h3><small>⏱ ${e(st.secs)} · nhóm tiêu chí: ${e(PIL[st.pil] || '')}</small></div></div><p class="o-goal">🎯 ${e(st.goal)}</p>
-<label class="o-say-l" for="o-note">🗣️ Nói thành tiếng trước, rồi ghi ý chính (tự do):</label><textarea id="o-note" data-note="${c.id}_${st.id}" maxlength="4000" placeholder="Bạn sẽ nói gì ở bước này?">${e(state.notes[c.id + '_' + st.id] || '')}</textarea>
-${shown ? `<div class="o-hint"><div class="note lav"><span>💬</span><span>${e(st.say)}</span></div><div class="o-checks">${st.items.map(x => `<label class="o-ck ${ticks.has(x.i) ? 'on' : ''}"><input type="checkbox" data-tick="${x.i}" ${ticks.has(x.i) ? 'checked' : ''}><span>${e(x.t)}</span></label>`).join('')}</div><p class="o-prog">Bạn đã nói được <b>${done}/${st.items.length}</b> ý</p><div class="note warn"><span>🚫</span><span><b>Đừng:</b> ${st.dont.map(e).join(' · ')}</span></div><a class="text-btn" href="#/step/${st.lesson}">📚 Ôn lại bài liên quan ↗</a></div>` : `<button class="btn mint" id="o-show">💡 Xem gợi ý & tick ý đã nói</button>`}</div>`;
+
+  const modeSwitcher = renderOsceModeSwitcher(oMode);
+
+  let mainContent = '';
+
+  if (oMode === 'flowchart') {
+    mainContent = `<div class="o-flowchart-container">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div>
+          <h2 style="font-size:22px;margin:0">${cf.icon} ${e(c.title)}</h2>
+          <small style="color:var(--muted);font-weight:700">Bản đồ tư duy logic dòng chảy lâm sàng · Triage ➔ Chẩn đoán ➔ 3 Làn khẩn</small>
+        </div>
+        <button class="btn primary" id="go-exam-btn">🎙️ Sang Thi Thử 5 Phút ▶</button>
+      </div>
+      ${renderOsceFlowchart(c, cf)}
+      <div style="margin-top:14px;background:#fff;border:1.2px solid var(--c-d);border-radius:18px;padding:14px">
+        <details class="deep" open>
+          <summary>📄 Tóm tắt đề thi & Dữ kiện ban đầu</summary>
+          <div class="deep-body">
+            <p>${e(c.stem).replace(/\n/g, '<br>')}</p>
+            <ul class="o-facts">${cf.facts.map(([a, b]) => `<li><b>${e(a)}</b>${e(b)}</li>`).join('')}</ul>
+          </div>
+        </details>
+      </div>
+    </div>`;
+  } else if (oMode === 'exam') {
+    mainContent = renderOsceExamView(c, cf, steps, ticks, pct);
   } else {
-    const pil = {}; steps.forEach(s => s.items.forEach(x => { (pil[s.pil] ??= [0, 0])[1]++; if (ticks.has(x.i)) pil[s.pil][0]++; }));
-    const ans = arr(getAnswer(c)), review = c.answerReview || {};
-    right = `<div class="o-panel"><div class="o-ph"><span class="o-pic">✅</span><div><h3>Đối chiếu & tự chấm</h3><small>tự lượng giá, không phải điểm thi</small></div></div><div class="o-score"><b>${pct()}%</b><span>ý đã nói</span></div>${Object.entries(pil).map(([k, [a, b]]) => `<div class="o-bar"><span>${e(PIL[k])}</span><div><i style="width:${b ? a / b * 100 : 0}%"></i></div><b>${a}/${b}</b></div>`).join('')}<p class="status-note">Thiếu nhóm nào thì ôn lại bước đó. Không đạt điểm tự luyện không có nghĩa là trượt OSCE.</p><button class="btn pink" id="answer-toggle">Mở đáp án nguồn & đối chiếu ↗</button></div>`;
+    // Mode steps (Luyện từng bước)
+    const stepBar = `<div class="o-steps">${steps.map((s, i) => { const its = s.items, done = its.length && its.every(x => ticks.has(x.i)); return `<button class="o-step ${i === oStep ? 'cur' : ''} ${done ? 'done' : ''}" data-st="${i}" title="${e(s.t)}"><span>${done ? '✓' : s.icon}</span><i>${i + 1}</i></button>`; }).join('')}</div>`;
+    const facts = `<ul class="o-facts">${cf.facts.map(([a, b]) => `<li><b>${e(a)}</b>${e(b)}</li>`).join('')}</ul>`;
+    const timer = `<div class="o-timer"><span class="timer" id="timer">${timeText()}</span><button id="timer-toggle" class="btn small">${timerRunning ? '⏸ Dừng' : '▶ Bắt đầu 5′'}</button><button id="timer-reset" class="btn small flat">↺</button></div>`;
+    const stem = `<details class="deep"><summary>📄 Đề gốc (bản nhớ lại)</summary><div class="deep-body"><p>${e(c.stem).replace(/\n/g, '<br>')}</p>${(c.originalQuestions || []).length ? `<p><b>Câu hỏi:</b><br>${c.originalQuestions.map(q => '• ' + e(typeof q === 'string' ? q : q.text || q.prompt || '')).join('<br>')}</p>` : ''}<p class="status-note">${e(c.source?.file || '')}${c.source?.pages ? ' · trang ' + e(arr(c.source.pages).join(', ')) : ''}</p></div></details>`;
+    const left = `<figure class="fig o-case">${renderOsceScene(c, st, oStep, cf)}<div class="o-top"><span class="badge ${cf.kind === 'tv' ? 'extra' : 'good'}">${cf.kind === 'tv' ? '💬 Trạm tư vấn' : '🚨 Trạm cấp cứu'}</span><span class="status-note">${e(c.source?.examLabel || '')}</span></div><h2 class="o-title">${cf.icon} ${e(c.title)}</h2>${facts}${c.vitals ? `<p class="vitals">${e(c.vitals)}</p>` : ''}${timer}${stem}</figure>`;
+
+    let right = '';
+    if (!last) {
+      const done = st.items.filter(x => ticks.has(x.i)).length, hidden = oHidden.has(oStep);
+      right = `<div class="o-panel">
+        <div class="o-ph">
+          <span class="o-pic">${st.icon}</span>
+          <div><h3>${oStep + 1}. ${e(st.t)}</h3><small>⏱ ${e(st.secs)} · nhóm tiêu chí: ${e(PIL[st.pil] || '')}</small></div>
+          <button class="btn small flat" id="o-hide-tog" style="margin-left:auto;font-size:12px">${hidden ? '💡 Mở gợi ý' : '🙈 Tự nhẩm (ẩn)'}</button>
+        </div>
+        <p class="o-goal">🎯 ${e(st.goal)}</p>
+
+        <div class="o-script-card" style="margin:4px 0 8px">
+          <div class="sh"><b>🎙️ Lời nói mẫu của Thủ khoa Y4:</b></div>
+          <div class="o-script-body" style="font-size:12.5px">${getStepScript(c, st.id, cf)}</div>
+        </div>
+
+        <label class="o-say-l" for="o-note">🗣️ Bạn tự nói gì ở bước này? (Ghi lại ý chính):</label>
+        <textarea id="o-note" data-note="${c.id}_${st.id}" maxlength="4000" placeholder="Luyện nói to thành tiếng, sau đó ghi chú lại...">${e(state.notes[c.id + '_' + st.id] || '')}</textarea>
+
+        ${!hidden ? `<div class="o-hint">
+          <div class="note lav"><span>💬</span><span>${e(st.say)}</span></div>
+          <div class="o-checks">${st.items.map(x => `<label class="o-ck ${ticks.has(x.i) ? 'on' : ''}"><input type="checkbox" data-tick="${x.i}" ${ticks.has(x.i) ? 'checked' : ''}><span>${e(x.t)}</span></label>`).join('')}</div>
+          <p class="o-prog">Bạn đã nói được <b>${done}/${st.items.length}</b> ý</p>
+          <div class="note warn"><span>🚫</span><span><b>Đừng:</b> ${st.dont.map(e).join(' · ')}</span></div>
+          <a class="text-btn" href="#/step/${st.lesson}">📚 Ôn lại bài liên quan ↗</a>
+        </div>` : `<div class="note butter"><span>🙈</span><span>Đang ở chế độ <b>tự nhẩm</b>. Bạn hãy nói to thành tiếng ý chính, sau đó bấm <b>💡 Mở gợi ý</b> góc trên để tự chấm và đối chiếu nha.</span></div>`}
+      </div>`;
+    } else {
+      const pil = {}; steps.forEach(s => s.items.forEach(x => { (pil[s.pil] ??= [0, 0])[1]++; if (ticks.has(x.i)) pil[s.pil][0]++; }));
+      const ans = arr(getAnswer(c)), review = c.answerReview || {};
+      right = `<div class="o-panel">
+        <div class="o-ph"><span class="o-pic">✅</span><div><h3>Đối chiếu & tự chấm</h3><small>tự lượng giá, không phải điểm thi</small></div></div>
+        <div class="o-score"><b>${pct()}%</b><span>ý đã nói</span></div>
+        ${Object.entries(pil).map(([k, [a, b]]) => `<div class="o-bar"><span>${e(PIL[k])}</span><div><i style="width:${b ? a / b * 100 : 0}%"></i></div><b>${a}/${b}</b></div>`).join('')}
+        <p class="status-note">Thiếu nhóm nào thì ôn lại bước đó. Không đạt điểm tự luyện không có nghĩa là trượt OSCE.</p>
+        <button class="btn pink" id="answer-toggle">Mở đáp án nguồn & đối chiếu ↗</button>
+      </div>`;
+    }
+
+    mainContent = `${stepBar}
+      <div class="scene">
+        <div class="viz">${left}<div class="say"><div id="mas">${mascot(last ? 'happy' : 'wow')}</div><div class="bub">${last ? 'Xong rồi! Xem điểm tự chấm bên phải nha.' : e(st.goal)}</div></div></div>
+        <aside class="ctl">${right}</aside>
+      </div>
+      ${last ? `<section id="case-answer" hidden>${renderCaseAnswer(c, arr(getAnswer(c)), c.answerReview || {})}</section>` : ''}`;
   }
-  const bottom = `<button class="btn flat" id="prev" data-go ${oStep === 0 ? 'disabled' : ''}>◀ Trước</button><div class="mid"><div class="dots">${steps.map((s, i) => `<i class="${i === oStep ? 'cur' : ''}"></i>`).join('')}</div><span class="sign">${SIGN}</span></div><button class="btn primary" id="next" data-go>${last ? '✓ Xong · về danh sách' : 'Tiếp ▶'}</button>`;
-  setView('lesson-mode', c.topic === 'tolac' ? 'mint' : c.topic === 'nbn' ? 'butter' : 'lavender', `🩺 ${cf.kind === 'tv' ? 'Tư vấn' : 'Cấp cứu'} · bước ${oStep + 1}/${steps.length}`, (oStep + 1) / steps.length * 100); renderRail(); setBar(bottom);
-  $('#stage').innerHTML = `<article class="lesson osce"><div class="head"><h1 class="ttl"><mark>${e(c.title)}</mark></h1></div>${stepBar}<div class="scene"><div class="viz">${left}<div class="say"><div id="mas">${mascot(last ? 'happy' : 'wow')}</div><div class="bub">${last ? 'Xong rồi! Xem điểm tự chấm bên phải nha.' : e(st.goal)}</div></div></div><aside class="ctl">${right}</aside></div>${last ? `<section id="case-answer" hidden>${renderCaseAnswer(c, arr(getAnswer(c)), c.answerReview || {})}</section>` : ''}</article>`;
-  const go2 = n => { oStep = clamp(n, 0, steps.length - 1); renderCase(id); $('#stage').scrollTop = 0; };
-  $$('.o-step').forEach(b => b.onclick = () => go2(+b.dataset.st));
-  $('#prev').onclick = () => go2(oStep - 1);
-  $('#next').onclick = () => { if (last) { go('#/osce'); return; } if (!oShown.has(oStep)) { const n = $('#next'); n.classList.remove('shake'); void n.offsetWidth; n.classList.add('shake'); sound('buzz'); toast('Thử nói trước rồi bấm 💡 Xem gợi ý nha'); return; } sound('pop'); go2(oStep + 1); };
-  window.__next = () => $('#next').click(); window.__prev = () => $('#prev').click();
-  const sh = $('#o-show'); if (sh) sh.onclick = () => { oShown.add(oStep); sound('pop'); renderCase(id); };
-  $$('[data-tick]').forEach(ch => ch.addEventListener('change', () => { const i = +ch.dataset.tick, cur = new Set(state.rubrics[c.id] || []); ch.checked ? cur.add(i) : cur.delete(i); state.rubrics[c.id] = [...cur].filter(n => n < 100); save(); sound(ch.checked ? 'pop' : 'tick'); const doneAll = st.items.every(x => cur.has(x.i)); if (ch.checked && doneAll) { sound('chime'); toast(rand(PRAISE) + ' Đủ ý bước này!'); burst(ch); } renderCase(id); }));
-  $$('[data-note]').forEach(t => t.addEventListener('input', () => { state.notes[t.dataset.note] = t.value; save(); }));
-  $('#timer-toggle').onclick = () => { if (timerRunning) stopTimer(); else startTimer(); $('#timer-toggle').textContent = timerRunning ? '⏸ Dừng' : '▶ Tiếp tục'; };
-  $('#timer-reset').onclick = () => { stopTimer(); remaining = (c.minutes || 5) * 60; updateTimer(); $('#timer-toggle').textContent = '▶ Bắt đầu 5′'; };
-  const at = $('#answer-toggle'); if (at) at.onclick = () => { const a = $('#case-answer'); a.hidden = !a.hidden; at.textContent = a.hidden ? 'Mở đáp án nguồn & đối chiếu ↗' : 'Gấp đáp án lại ↑'; sound(); if (!a.hidden) a.scrollIntoView({ behavior: 'smooth' }); };
+
+  const bottom = `<button class="btn flat" id="prev" data-go ${oStep === 0 || oMode !== 'steps' ? 'disabled' : ''}>◀ Trước</button><div class="mid"><div class="dots">${steps.map((s, i) => `<i class="${i === oStep ? 'cur' : ''}"></i>`).join('')}</div><span class="sign">${SIGN}</span></div><button class="btn primary" id="next" data-go>${last ? '✓ Xong · về danh sách' : 'Tiếp ▶'}</button>`;
+  setView('lesson-mode', c.topic === 'tolac' ? 'mint' : c.topic === 'nbn' ? 'butter' : 'lavender', `🩺 ${cf.kind === 'tv' ? 'Tư vấn' : 'Cấp cứu'} · ${oMode === 'flowchart' ? 'Bản đồ tư duy' : oMode === 'exam' ? 'Thi thử 5′' : `Bước ${oStep + 1}/${steps.length}`}`, oMode === 'steps' ? ((oStep + 1) / steps.length * 100) : 100);
+  renderRail();
+  setBar(bottom);
+
+  $('#stage').innerHTML = `<article class="lesson osce">
+    <div class="head"><h1 class="ttl"><mark>${e(c.title)}</mark></h1></div>
+    ${modeSwitcher}
+    ${mainContent}
+  </article>`;
+
+  // Events for Mode Switcher
+  $$('[data-omode]').forEach(btn => {
+    btn.onclick = () => {
+      oMode = btn.dataset.omode;
+      sound('pop');
+      renderCase(id);
+      $('#stage').scrollTop = 0;
+    };
+  });
+
+  const goExam = $('#go-exam-btn');
+  if (goExam) goExam.onclick = () => { oMode = 'exam'; sound('pop'); renderCase(id); $('#stage').scrollTop = 0; };
+
+  // Events for exam mode
+  if (oMode === 'exam') {
+    $('#exam-timer-toggle').onclick = () => {
+      if (timerRunning) stopTimer();
+      else startTimer();
+      $('#exam-timer-toggle').textContent = timerRunning ? '⏸ Tạm dừng' : '▶ Tiếp tục thi';
+      $('#exam-timer-toggle').style.background = timerRunning ? '#475569' : '#0284c7';
+    };
+    $('#exam-timer-reset').onclick = () => {
+      stopTimer();
+      remaining = (c.minutes || 5) * 60;
+      updateTimer();
+      $('#exam-timer-toggle').textContent = '▶ Bắt đầu thi';
+      $('#exam-timer-toggle').style.background = '#0284c7';
+    };
+    const eat = $('#exam-answer-toggle');
+    if (eat) {
+      eat.onclick = () => {
+        const a = $('#case-answer-exam');
+        a.hidden = !a.hidden;
+        eat.textContent = a.hidden ? 'Mở đáp án nguồn & đối chiếu ↗' : 'Gấp đáp án lại ↑';
+        sound();
+        if (!a.hidden) a.scrollIntoView({ behavior: 'smooth' });
+      };
+    }
+    $$('[data-rubric-row]').forEach(chk => {
+      chk.onchange = () => {
+        const rowId = chk.dataset.rubricRow;
+        const cur = new Set(state.rubrics[c.id + '_exam'] || []);
+        if (chk.checked) cur.add(rowId);
+        else cur.delete(rowId);
+        state.rubrics[c.id + '_exam'] = [...cur];
+        save();
+        sound(chk.checked ? 'pop' : 'tick');
+        renderCase(id);
+      };
+    });
+  }
+
+  // Events for step mode
+  if (oMode === 'steps') {
+    const go2 = n => { oStep = clamp(n, 0, steps.length - 1); renderCase(id); $('#stage').scrollTop = 0; };
+    $$('.o-step').forEach(b => b.onclick = () => go2(+b.dataset.st));
+    $('#prev').onclick = () => go2(oStep - 1);
+    $('#next').onclick = () => { if (last) { go('#/osce'); return; } sound('page'); go2(oStep + 1); };
+    window.__next = () => $('#next').click(); window.__prev = () => $('#prev').click();
+    const ht = $('#o-hide-tog'); if (ht) ht.onclick = () => { if (oHidden.has(oStep)) oHidden.delete(oStep); else oHidden.add(oStep); sound('pop'); renderCase(id); };
+    $$('[data-tick]').forEach(ch => ch.addEventListener('change', () => { const i = +ch.dataset.tick, cur = new Set(state.rubrics[c.id] || []); ch.checked ? cur.add(i) : cur.delete(i); state.rubrics[c.id] = [...cur].filter(n => n < 100); save(); sound(ch.checked ? 'pop' : 'tick'); const doneAll = st.items.every(x => cur.has(x.i)); if (ch.checked && doneAll) { sound('chime'); toast(rand(PRAISE) + ' Đủ ý bước này!'); burst(ch); } renderCase(id); }));
+    $$('[data-note]').forEach(t => t.addEventListener('input', () => { state.notes[t.dataset.note] = t.value; save(); }));
+    const tt = $('#timer-toggle');
+    if (tt) tt.onclick = () => { if (timerRunning) stopTimer(); else startTimer(); tt.textContent = timerRunning ? '⏸ Dừng' : '▶ Tiếp tục'; };
+    const tr = $('#timer-reset');
+    if (tr) tr.onclick = () => { stopTimer(); remaining = (c.minutes || 5) * 60; updateTimer(); if (tt) tt.textContent = '▶ Bắt đầu 5′'; };
+    const at = $('#answer-toggle'); if (at) at.onclick = () => { const a = $('#case-answer'); a.hidden = !a.hidden; at.textContent = a.hidden ? 'Mở đáp án nguồn & đối chiếu ↗' : 'Gấp đáp án lại ↑'; sound(); if (!a.hidden) a.scrollIntoView({ behavior: 'smooth' }); };
+  }
+
   updateTimer();
 }
 
@@ -387,9 +1199,40 @@ function renderCaseAnswer(c,answers,review){
 }
 function updateRubric(c){const el=$('#rubric-score');if(!el)return;const n=(state.rubrics[c.id]||[]).length;el.textContent=`Bạn đã tự đối chiếu ${n}/${c.rubric.length} ý. Đây là mức tự rà soát, không quy đổi thành điểm thi.`;}
 function timeText(){return `${String(Math.floor(remaining/60)).padStart(2,'0')}:${String(remaining%60).padStart(2,'0')}`;}
-function updateTimer(){const t=$('#timer');if(t){t.textContent=timeText();t.classList.toggle('expired',remaining===0);}}
-function startTimer(){if(remaining<=0){toast('Hết giờ tự luyện; bạn có thể đặt lại hoặc mở đáp án.');return;}timerRunning=true;caseTimer=setInterval(()=>{remaining=Math.max(0,remaining-1);updateTimer();if(!remaining){stopTimer();sound('chime');toast('Hết giờ tự luyện. Bạn hoàn tất ý đang nói rồi mở đáp án để đối chiếu.');if($('#timer-toggle'))$('#timer-toggle').textContent='Đã hết giờ';}},1000);}
-function stopTimer(){if(caseTimer)clearInterval(caseTimer);caseTimer=null;timerRunning=false;}
+function updateTimer(){
+  const t = $('#timer'); if (t) { t.textContent = timeText(); t.classList.toggle('expired', remaining === 0); }
+  const ec = $('#exam-clock');
+  if (ec) {
+    ec.textContent = timeText();
+    ec.classList.toggle('warn', remaining > 0 && remaining <= 120);
+    ec.classList.toggle('danger', remaining > 0 && remaining <= 60);
+    ec.classList.toggle('expired', remaining === 0);
+  }
+  const pn = $('#pacing-now');
+  if (pn) {
+    const elapsed = Math.max(0, 300 - remaining), pct = Math.min(100, (elapsed / 300) * 100);
+    pn.style.left = pct + '%';
+  }
+}
+function startTimer(){
+  if (remaining <= 0) { toast('Hết giờ tự luyện; bạn có thể đặt lại hoặc mở đáp án.'); return; }
+  timerRunning = true;
+  caseTimer = setInterval(() => {
+    remaining = Math.max(0, remaining - 1);
+    updateTimer();
+    if (!remaining) {
+      stopTimer();
+      sound('chime');
+      toast('⏰ Đã hết 5 phút thi trạm! Hãy hoàn tất câu nói và đối chiếu với đáp án/rubric.');
+      if ($('#timer-toggle')) $('#timer-toggle').textContent = 'Đã hết giờ';
+      if ($('#exam-timer-toggle')) {
+        $('#exam-timer-toggle').textContent = 'Đã hết giờ';
+        $('#exam-timer-toggle').style.background = '#dc2626';
+      }
+    }
+  }, 1000);
+}
+function stopTimer(){ if (caseTimer) clearInterval(caseTimer); caseTimer = null; timerRunning = false; }
 function renderSources(anchor){
  const lib=window.SOURCE_LIBRARY||{},official=window.OFFICIAL_RUBRIC;
  $('#stage').innerHTML=`<div class="page-head"><div class="eyebrow">📚 SỔ NGUỒN · CÓ ĐỊA CHỈ ĐỂ KIỂM LẠI</div><h1>Bám giáo trình.<br><em>Đọc rõ từng nguồn.</em></h1><p>Nội dung được tổ chức theo ELOs Topic 46 và bộ bài giảng UMP. Phần đối chiếu guideline có phiên bản riêng; ghi chú/đáp án của sinh viên không được mặc định là đáp án bộ môn.</p></div><div class="source-note">${e(lib.inventorySummary||'Đã rà tài liệu tại các thư mục được cung cấp.')}<br><b>Ngày kiểm:</b> ${C.date}. ${L.length} trang học; ${M.length} chặng, trong đó ba chặng đọc thêm. Đây là phạm vi đã đối chiếu, không phải tuyên bố mọi trang của mọi đề scan đã được OCR.</div><div class="pill-list"><a class="pill" href="#sources-local">Nguồn học phần</a><a class="pill" href="#sources-coverage">Bảng phủ nội dung</a><a class="pill" href="#sources-rubric">Rubric gốc</a><a class="pill" href="#sources-guideline">Đối chiếu guideline</a></div><section id="sources-local"><div class="section-title"><h2>Tài liệu được chọn làm trục</h2><p>Đọc bản đầy đủ, bỏ học lặp</p></div>${(lib.selected||[]).map(s=>`<details class="deep"><summary>${e(s.title)} <span class="badge">${e(s.id)} · tr. ${e(s.pages)}</span></summary><div class="deep-body"><p>${e(s.why)}</p><p class="status-note">Đường dẫn gốc trên máy:<br><code style="overflow-wrap:anywhere">${e(s.path)}</code></p></div></details>`).join('')}<p class="status-note">Toàn bộ nguồn gốc vẫn ở thư mục của bạn. Bản kiểm kê, hash và bản trích nằm trong thư mục research của dự án; web chỉ đóng gói metadata và hình chọn lọc.</p></section><section id="sources-coverage"><div class="section-title"><h2>Kiến thức có chỗ đứng ở đâu?</h2></div><div class="table-scroll"><table class="coverage-table"><thead><tr><th>Nhóm</th><th>Trang học</th><th>Nguồn</th></tr></thead><tbody>${(lib.coverage||[]).map(c=>`<tr><td>${e(c.label)}</td><td>${(c.lessonIds||[]).filter(id=>validIds.has(id)).map(id=>`<a href="#/step/${id}">${e(L.find(l=>l.id===id).title)}</a>`).join('<br>')}</td><td>${e(c.source)}</td></tr>`).join('')}</tbody></table></div></section><section id="sources-rubric"><div class="section-title"><h2>Rubric thật, đọc đúng bệnh cảnh</h2></div><p class="status-note">Rubric-thi-OSCE-cuối-kỳ.pdf (3 trang) có thang F/50%/75%/100%. Một số phiên bản khác dùng F/40%/80%/100%; không trộn các thang.</p><div class="source-note"><b>Khung chung:</b> giao tiếp/chuyên nghiệp; khai thác và phân tích tiền sử, PARA, tuổi thai; nhận diện chỉ báo, lựa chọn và diễn giải test; giải pháp/đồng thuận/kiểm tra hiểu và quản lý tiếp. Quy tắc không đạt của rubric phải đọc riêng, không chỉ cộng điểm.</div>${official?`<h3 style="margin-top:25px">${e(official.title||'Rubric NBN cụ thể')}</h3><p class="status-note">${e(official.context||'Ca NBN nặng có CTG đe dọa, không áp dụng cho mọi ca NBN.')}<br>${e(official.source||'RUBRIC.pdf, trang 6')}</p><div class="table-scroll"><table><thead><tr><th>Năng lực</th><th>Tối đa</th><th>Nội dung / mức đánh giá</th></tr></thead><tbody>${(official.rows||[]).map(r=>`<tr><td>${e(r.name||r.title||r.skill)}</td><td>${e(r.max)}</td><td>${renderCriteria(r.criteria)}</td></tr>`).join('')}</tbody></table></div><p class="status-note">Tổng tối đa 10 điểm. Ô 80% của “thái độ cấp cứu” không được tính theo chú thích bảng gốc. Xem ảnh gốc bên dưới để đọc đầy đủ mức F/40%/80%/100%.</p>`:''}<details class="deep"><summary>Xem ảnh rubric NBN gốc</summary><figure class="ref-inline"><img src="assets/rubric-nbn-original.png" alt="Bảng rubric ca NBN từ RUBRIC.pdf trang 6, bảy thành phần và các mức điểm" loading="lazy"><figcaption>RUBRIC.pdf · trang 6. Dùng đúng ca đã cho; không xem đây là bảng chấm cho mọi trạm.</figcaption></figure></details></section><section><div class="section-title"><h2>Hình từ tài liệu học phần</h2></div><div class="ref-gallery">${(window.REFERENCE_IMAGES||[]).map(im=>`<figure><img src="${e(im.src)}" alt="${e(im.title)}" loading="lazy"><figcaption><strong>${e(im.title)}</strong>${e(im.caption)}<br>Nguồn: ${e(im.source)}</figcaption></figure>`).join('')}</div></section><section id="sources-guideline"><div class="section-title"><h2>Giáo trình cũ & điểm đối chiếu hiện hành</h2></div><p class="status-note">Bảng này làm rõ thay đổi và lỗi ghi chú; không thay dữ kiện đề hoặc gán guideline mới thành đáp án bộ môn.</p>${(lib.corrections||[]).map(c=>`<div class="correction"><div class="old"><b>Điểm cần cảnh giác trong nguồn cũ</b>${e(c.old)}</div><div><b>Đối chiếu</b>${e(c.current)}<br><small>${e(c.source)}</small></div></div>`).join('')}<div class="section-title"><h2>Danh mục nguồn kiểm chứng</h2></div>${Object.entries(C.sources).map(([id,s])=>`<article class="source-card" id="source-${id}"><span class="source-id">[${e(id)}] · ${e(s.year||'')}</span><h2>${e(s.title)}</h2><p>${e(s.note||'')}</p>${s.url?`<a href="${e(s.url)}" target="_blank" rel="noopener noreferrer">Mở nguồn chính thức ↗</a>`:''}</article>`).join('')}</section><section><div class="section-title"><h2>Giới hạn công khai</h2></div><ul>${(lib.limitations||[]).map(t=>`<li style="font-size:12px">${e(t)}</li>`).join('')}<li style="font-size:12px">Chưa truy xuất được phác đồ Bộ Y tế/Từ Dũ 2026 đầy đủ; nguồn địa phương 2018 được ghi đúng năm. Liều thuốc chưa kiểm chứng không được tự thêm.</li><li style="font-size:12px">Tiến độ không tự đồng bộ qua cloud. Link chặng chỉ mang vị trí; để chuyển cả tiến độ, dùng Lưu/Nhập tiến độ.</li></ul></section>`;
@@ -412,11 +1255,150 @@ const TRA = [
   ['🌩️', 'Nhau bong non & vỡ tử cung', 'butter', [['NBN', 'Chẩn đoán chủ yếu lâm sàng; siêu âm âm tính không loại trừ; tim thai + cơn co đọc cùng nhau; DIC cần bù thành phần.', 'chan-doan-nbn'], ['Đường sinh khi NBN', 'Thai sống đe dọa, không sinh nhanh được → mổ khẩn · thai mất & mẹ ổn → ưu tiên sinh âm đạo · mẹ sốc không kiểm soát → khẩn theo an toàn mẹ.', 'xu-tri-nbn'], ['Dọa vỡ', 'Ngừng tăng co, gọi kíp, hồi sức + mổ khẩn song song; không tăng oxytocin để vượt bất xứng.', 'xu-tri-vo']]],
   ['🛤️', 'TOLAC & kẹt vai', 'sky', [['Nguy cơ vỡ tử cung', '≈ 0,5% = 5/1000 trong dự định VBAC (RCOG GTG45, 2015); gây chuyển dạ/tăng co có thể ×2–3.', 'nguy-co-va-tu-van'], ['Điểm chặn', 'Sẹo dọc/cổ điển · tiền căn vỡ tử cung · nhau che lỗ trong; sẹo da không cho biết đường rạch tử cung.', 'chon-nguoi'], ['Kẹt vai', 'Gọi hỗ trợ + ghi giờ → McRoberts → ấn TRÊN xương mu (KHÔNG ấn đáy) → đổi cơ chế; không kéo đầu mạnh.', 'xu-tri-dau-tien']]]
 ];
+let traState = { hr: 95, sbp: 110, oxyPha: 20, oxyMl: 125, pphVol: 350, pphAbn: true };
+
 function renderTra() {
   setView('page-mode', 'butter'); pageBar();
-  $('#stage').innerHTML = `<div class="page-head"><div class="eyebrow">📌 TRA NHANH ĐI TRỰC</div><h1>Số & ngưỡng <em>hay dùng</em></h1><p>Mỗi dòng có link về bài để hiểu vì sao. Số theo bài giảng và guideline kèm phiên bản — không thay phác đồ nơi bạn làm.</p></div>
+  const si = (traState.hr / Math.max(1, traState.sbp)).toFixed(2);
+  let siBg = '#dcfce7', siCol = '#15803d', siTxt = 'Bình thường / Còn bù (SI < 0.9)', siRec = 'Sinh hiệu trong giới hạn. Lưu ý: SI thấp KHÔNG loại trừ chảy máu trong (NBN, vỡ tử cung).';
+  if (si >= 1.4) {
+    siBg = '#fce7f3'; siCol = '#9d174d'; siTxt = '🚨 Sốc mất máu nặng đe dọa tử vong (Độ IV)';
+    siRec = 'NGUY KỊCH! Kích hoạt quy trình truyền máu khối lượng lớn (MTP 1:1:1), can thiệp phẫu thuật khẩn cấp.';
+  } else if (si >= 1.0) {
+    siBg = '#fee2e2'; siCol = '#b91c1c'; siTxt = '⚠️ Sốc mất máu mức độ II–III (SI ≥ 1.0)';
+    siRec = 'KÍCH HOẠT BÁO ĐỘNG ĐỎ PPH! Lập 2 đường truyền lớn, bù dịch ấm, kích hoạt truyền máu, tìm 4T.';
+  } else if (si >= 0.9) {
+    siBg = '#ffedd5'; siCol = '#c2410c'; siTxt = '⚡ Báo động sớm (FIGO 2022 / WHO 2025)';
+    siRec = 'Khả năng bù trừ đang cạn kiệt. Gọi hỗ trợ, lập đường truyền lớn, chuẩn bị sẵn sàng máu.';
+  }
+
+  let oxyGiot = 0, oxyIuH = 0, oxyNote = '';
+  if (traState.oxyPha === 10) {
+    oxyNote = 'Liều nạp khẩn WHO: 10 IU IV chậm 1–2 phút hoặc pha 100 mL dịch truyền chảy trong 10–15 phút.';
+  } else {
+    oxyGiot = Math.round(traState.oxyMl * 20 / 60);
+    oxyIuH = (traState.oxyMl * traState.oxyPha / 500).toFixed(1);
+    oxyNote = `Tương đương ${(traState.oxyPha * 1000 / 500 * traState.oxyMl / 60).toFixed(0)} mIU/phút. Dùng tối đa 40 IU duy trì, không bolus nhanh trực tiếp tĩnh mạch (nguy cơ tụt HA).`;
+  }
+
+  const isTrigger = traState.pphVol >= 500 || (traState.pphVol >= 300 && traState.pphAbn);
+  const isSevere = traState.pphVol >= 1000;
+  let trgBg = '#f0fdf4', trgCol = '#166534', trgTitle = 'Chưa đạt trigger can thiệp PPH', trgAction = 'Tiếp tục theo dõi lượng máu mất đo được qua khay/túi và sinh hiệu mẹ mỗi 15 phút.';
+  if (isSevere) {
+    trgBg = '#fce7f3'; trgCol = '#9d174d'; trgTitle = '🚨 BĂNG HUYẾT SAU SINH NẶNG (≥ 1000 mL)';
+    trgAction = 'Báo động đỏ toàn viện! Hồi sức tích cực, truyền máu khẩn, leo thang can thiệp phẫu thuật / thủ thuật.';
+  } else if (isTrigger) {
+    trgBg = '#fee2e2'; trgCol = '#b91c1c'; trgTitle = '🚨 ĐẠT TRIGGER KHỞI TRỊ BHSS (WHO 2025)';
+    trgAction = 'KÍCH HOẠT BUNDLE ĐIỀU TRỊ PPH TRONG ≤ 15 PHÚT (Xoa đáy TC + Oxytocin IV + TXA 1g + 2 đường truyền lớn + tìm 4T)!';
+  }
+
+  $('#stage').innerHTML = `<div class="page-head"><div class="eyebrow">📌 TRA NHANH ĐI TRỰC</div><h1>Số & ngưỡng <em>hay dùng</em></h1><p>Mỗi dòng có link về bài để hiểu vì sao. Kèm 3 máy tính phản xạ tại giường giúp ra quyết định nhanh khi đi trực.</p></div>
+<section class="tra-tools">
+  <div class="tra-tbox">
+    <div class="tra-th"><span>⚡ CÔNG CỤ PHẢN XẠ ĐI TRỰC</span><h3>Tính nhanh tại giường · Ra quyết định cấp cứu</h3></div>
+    <div class="tra-tgrid">
+      <div class="tra-card">
+        <h4>💓 Máy tính Shock Index (SI)</h4>
+        <small>SI = HR ÷ HATT · Báo động sốc mất máu trước khi tụt áp</small>
+        <div class="tc-row">
+          <div class="tc-lbl"><span>Mạch mẹ (HR):</span><b>${traState.hr} bpm</b></div>
+          <input type="range" id="tra-hr" min="60" max="160" value="${traState.hr}">
+        </div>
+        <div class="tc-row">
+          <div class="tc-lbl"><span>Huyết áp tâm thu (HATT):</span><b>${traState.sbp} mmHg</b></div>
+          <input type="range" id="tra-sbp" min="50" max="160" value="${traState.sbp}">
+        </div>
+        <div class="tc-res" style="background:${siBg};color:${siCol}">
+          <div class="tc-num"><b>SI = ${si}</b><small>(${traState.hr} ÷ ${traState.sbp})</small></div>
+          <b style="font-size:13px">${siTxt}</b>
+          <div class="tc-desc">${siRec}</div>
+        </div>
+      </div>
+
+      <div class="tra-card">
+        <h4>💉 Liều truyền Oxytocin điều trị BHSS</h4>
+        <small>Chai 500 mL dịch tinh thể · Dây truyền chuẩn 20 giọt/mL</small>
+        <div class="tc-select">
+          <button class="tc-btn ${traState.oxyPha === 20 ? 'active' : ''}" data-oxy="20">20 IU / 500 mL</button>
+          <button class="tc-btn ${traState.oxyPha === 40 ? 'active' : ''}" data-oxy="40">40 IU / 500 mL</button>
+          <button class="tc-btn ${traState.oxyPha === 10 ? 'active' : ''}" data-oxy="10">10 IU nạp khẩn</button>
+        </div>
+        ${traState.oxyPha !== 10 ? `
+        <div class="tc-row">
+          <div class="tc-lbl"><span>Tốc độ máy truyền (mL/h):</span><b>${traState.oxyMl} mL/h</b></div>
+          <input type="range" id="tra-oxyml" min="60" max="250" step="5" value="${traState.oxyMl}">
+        </div>
+        <div class="tc-res" style="background:#eff6ff;color:#1e40af">
+          <div class="tc-num"><b>${oxyGiot} giọt/phút</b><small>≈ ${oxyIuH} IU/giờ</small></div>
+          <div class="tc-desc">${oxyNote}</div>
+        </div>
+        ` : `
+        <div class="tc-res" style="background:#fef3c7;color:#92400e">
+          <div class="tc-num"><b>10 IU IV</b><small>trong 1–2 phút hoặc truyền 5–10′</small></div>
+          <div class="tc-desc">${oxyNote}</div>
+        </div>`}
+      </div>
+
+      <div class="tra-card">
+        <h4>🎯 Trigger khởi trị BHSS (WHO 2025)</h4>
+        <small>Dựa trên lượng máu đo khách quan + dấu hiệu huyết động</small>
+        <div class="tc-row">
+          <div class="tc-lbl"><span>Lượng máu đo được (drape/khay):</span><b>${traState.pphVol} mL</b></div>
+          <input type="range" id="tra-vol" min="100" max="1500" step="50" value="${traState.pphVol}">
+        </div>
+        <label class="tc-check">
+          <input type="checkbox" id="tra-abn" ${traState.pphAbn ? 'checked' : ''}>
+          <span>Bất thường huyết động (Mạch>100 / HATT<90 / SI>1.0)</span>
+        </label>
+        <div class="tc-res" style="background:${trgBg};color:${trgCol}">
+          <b style="font-size:13px">${trgTitle}</b>
+          <div class="tc-desc">${trgAction}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 <div class="tra">${TRA.map(([ic, t, col, rows]) => `<section class="tra-g c-${col}"><h2>${ic} ${e(t)}</h2>${rows.map(([a, b, id]) => `<a class="tra-r" href="#/step/${id}"><b>${e(a)}</b><span>${e(b)}</span><i>↗</i></a>`).join('')}</section>`).join('')}</div>`;
+
+  bindTraTools();
   renderRail();
+}
+
+function bindTraTools() {
+  const hr = $('#tra-hr'), sbp = $('#tra-sbp'), oxyml = $('#tra-oxyml'), vol = $('#tra-vol'), abn = $('#tra-abn');
+  if (hr) hr.oninput = () => { traState.hr = +hr.value; renderTra(); };
+  if (sbp) sbp.oninput = () => { traState.sbp = +sbp.value; renderTra(); };
+  if (oxyml) oxyml.oninput = () => { traState.oxyMl = +oxyml.value; renderTra(); };
+  if (vol) vol.oninput = () => { traState.pphVol = +vol.value; renderTra(); };
+  if (abn) abn.onchange = () => { traState.pphAbn = abn.checked; renderTra(); };
+  $$('[data-oxy]').forEach(btn => btn.onclick = () => { traState.oxyPha = +btn.dataset.oxy; renderTra(); });
+}
+
+
+// ───────── mở chương: 3 mục tiêu + lộ trình (để thấy mạch logic cả chương trước khi học)
+const GOALS = {
+  goc: ['Vẽ được **đường đi của máu**: mẹ → hồ máu → bé', 'Hiểu **cơ co rút + đông máu** cầm máu sau sinh ra sao', 'Đọc **tưới máu** của mẹ, không chỉ nhìn HA'],
+  soc: ['Nhận ra **sốc còn bù** trước khi tụt áp', 'Dùng **Shock Index** và các mức mất máu đúng cách', 'Hồi sức + cầm máu **song song**, tránh tam giác chết'],
+  duphong: ['Tìm **yếu tố nguy cơ** trước sinh, chuẩn bị đúng mức', 'Làm đúng **giai đoạn III**: thuốc co hồi, kẹp rốn, kéo dây rốn', '**Đo máu mất khách quan**, biết khi nào khởi trị'],
+  pph: ['Gọi tên **4T** và tìm đúng nguyên nhân từng ca', 'Chạy **bundle**, chọn thuốc theo chống chỉ định', 'Biết các **bước leo thang**: ép, bóng chèn, phẫu thuật'],
+  ntd: ['Phân biệt **tiền đạo / bám thấp**, hiểu vì sao nhau "di chuyển"', 'Khám **an toàn** (TVS), biết việc **cấm** (ngón tay)', 'Nhận ra **PAS**, lên kế hoạch và tư vấn người bệnh'],
+  nbn: ['Giải thích **máu tụ sau nhau → mất oxy → tim thai chậm**', 'Chẩn đoán bằng **lâm sàng**, biết giới hạn siêu âm & D-dimer', 'Xử trí **DIC, Couvelaire** và chọn đường sinh'],
+  votc: ['Phân biệt **nứt hay vỡ**, **có sẹo hay chưa**', 'Nhận **dấu dọa vỡ** và dừng tăng co', 'Nhận diện qua **tim thai trước**; hồi sức + mổ cùng lúc'],
+  tolac: ['Phân biệt **TOLAC** (lựa chọn) và **VBAC** (kết quả)', '**Chọn người** phù hợp, tư vấn bằng **số tuyệt đối**', 'Biết **điều kiện lối thoát** khi theo dõi TOLAC'],
+  vai: ['Hiểu **vai mắc ở đâu** và vì sao kéo mạnh là sai', 'Làm đúng **thứ tự thủ thuật**, nhớ 3 việc cấm', 'Nhận **hậu quả cho bé và mẹ** + ghi hồ sơ đủ'],
+  afe: ['Giải thích **AFE** bằng viêm + co thắt mạch phổi', 'Hồi sức AFE: **tránh quá tải dịch**, đội đa chuyên khoa', '**Phân biệt các loại sốc**, trả lời OSCE có khung']
+};
+function renderChuong(mid) {
+  const m = M.find(x => x.id === mid); if (!m) { renderNotFound(); return; }
+  const ls = moduleLessons(m), nPages = ls.reduce((n, l) => n + pagesOf(l).length, 0), mins = Math.max(3, Math.round(nPages * .6)), done = ls.filter(l => state.done.includes(l.id)).length;
+  const nxt = ls.find(l => !state.done.includes(l.id)) || ls[0], first = ls[0], mi = M.indexOf(m);
+  setView('lesson-mode', m.color, `${MODICON[m.id]} ${m.short} · mở chương`, 0);
+  $('#stage').innerHTML = `<article class="lesson chuong"><section class="chero"><div class="cic">${MODICON[m.id]}</div><div class="ctx"><small>Chương ${mi + 1}/${M.length} · ${nPages} trang · khoảng ${mins} phút</small><h1><mark>${e(m.title)}</mark></h1><p>${e(m.desc)}</p></div></section>
+<div class="cgrid"><section class="cgoals"><h2>🎯 Xong chương này bạn sẽ…</h2><ol>${(GOALS[m.id] || []).map(g => `<li><i>✓</i><span>${md(g)}</span></li>`).join('')}</ol><p class="cnote">Mỗi trang = 1 hình + 1 việc để chạm/kéo + 1 chuỗi <b>Thấy → Vì → Nên</b>. Cuối bài có 🧠 Thử nhớ.</p></section>
+<section class="croad"><h2>🗺️ Lộ trình ${ls.length} bài</h2><ol>${ls.map((l, i) => { const ps = BEATS()[l.id] ? BEATS()[l.id].map(b => b.t) : []; return `<li class="${state.done.includes(l.id) ? 'done' : ''}"><a href="#/step/${l.id}"><i>${state.done.includes(l.id) ? '✓' : i + 1}</i><span><b>${e(l.title)}</b>${ps.length ? `<small>${ps.map(e).join(' → ')}</small>` : ''}</span></a></li>`; }).join('')}</ol></section></div></article>`;
+  const prevHash = mi ? '#/chot/' + M[mi - 1].id : '#/map';
+  setBar(`<a class="btn flat" href="#/map" data-go>🏠 Bản đồ</a><span class="mid"><span class="sign">${SIGN}</span></span><a class="btn primary" id="cstart" href="#/step/${nxt.id}" data-go>${done ? '▶ Học tiếp' : '▶ Bắt đầu chương'}</a>`);
+  window.__next = () => { sound('page'); go('#/step/' + nxt.id); }; window.__prev = () => go('#/map');
 }
 
 // ───────── chốt chương: tự trả lời trong đầu rồi lật thẻ
@@ -425,10 +1407,10 @@ function renderChot(mid) {
   const ls = moduleLessons(m), mi = M.indexOf(m), nextM = M[mi + 1], target = nextM ? '#/step/' + moduleLessons(nextM)[0].id : '#/map';
   const done = new Set(); let ready = false;
   setView('lesson-mode', m.color, `${MODICON[m.id]} ${m.short} · chốt chương`, 100);
-  $('#stage').innerHTML = `<article class="lesson"><div class="head"><h1 class="ttl"><mark>🃏 Chốt chương: ${e(m.short)}</mark></h1></div><div class="howto"><b>📝 Cách học</b><ol><li><span>Đọc câu hỏi, <b>tự trả lời trong đầu</b> trước</span></li><li><span>Bấm thẻ để <b>lật</b> xem đáp án</span></li><li><span>Lật đủ ${ls.length} thẻ để sang bài tiếp</span></li></ol></div><div class="flips">${ls.map((l, i) => `<button class="fc" data-i="${i}"><span class="f1"><small>${i + 1}. ${e(l.title)}</small><b>${e(l.quiz.q)}</b><em>chạm để lật</em></span><span class="f2"><b>✓ ${e(l.quiz.options[l.quiz.answer])}</b><small>${e(l.quiz.explain)}</small></span></button>`).join('')}</div></article>`;
+  $('#stage').innerHTML = `<article class="lesson"><div class="head"><h1 class="ttl"><mark>🃏 Chốt chương: ${e(m.short)}</mark></h1></div><div class="howto"><b>📝 Cách học</b><ol><li><span>Đọc câu hỏi, <b>tự trả lời trong đầu</b> trước</span></li><li><span>Bấm thẻ để <b>lật</b> xem đáp án</span></li><li><span>Lật bao nhiêu tuỳ bạn — sang bài tiếp bất cứ lúc nào</span></li></ol></div><div class="flips">${ls.map((l, i) => `<button class="fc" data-i="${i}"><span class="f1"><small>${i + 1}. ${e(l.title)}</small><b>${e(l.quiz.q)}</b><em>chạm để lật</em></span><span class="f2"><b>✓ ${e(l.quiz.options[l.quiz.answer])}</b><small>${e(l.quiz.explain)}</small></span></button>`).join('')}</div></article>`;
   const bar = () => setBar(`<a class="btn flat" href="${lessonHash(ls[ls.length - 1], pagesOf(ls[ls.length - 1]).slice(-1)[0])}" data-go>◀ Quay lại</a><div class="mid"><div class="dots">${ls.map((_, i) => `<i class="${done.has(i) ? 'done' : ''}"></i>`).join('')}</div><span class="sign">${SIGN}</span></div><button class="btn ${ready ? 'primary' : ''}" id="next" data-go>${nextM ? 'Bài tiếp: ' + e(nextM.short) + ' ▶' : '🏠 Về bản đồ'}</button>`);
   bar();
-  const go2 = () => { if (!ready) { const n = $('#next'); n.classList.remove('shake'); void n.offsetWidth; n.classList.add('shake'); sound('buzz'); toast('Lật đủ ' + ls.length + ' thẻ đã nha 🃏'); return; } sound('tada'); go(target); };
+  const go2 = () => { sound(ready ? 'tada' : 'page'); go(target); };
   $('#stage').onclick = ev => { const c = ev.target.closest('.fc'); if (!c) return; c.classList.toggle('on'); done.add(+c.dataset.i); sound('pop'); if (!ready && done.size >= ls.length) { ready = true; toast(rand(PRAISE) + ' Chốt chương xong!'); burst(c); } bar(); $('#next').onclick = go2; };
   $('#next').onclick = go2; window.__next = go2; window.__prev = () => go(lessonHash(ls[ls.length - 1], pagesOf(ls[ls.length - 1]).slice(-1)[0]));
 }
@@ -438,7 +1420,7 @@ function route() {
   if (!hash.startsWith('#/')) { document.getElementById(hash.slice(1))?.scrollIntoView(); return; }
   const parts = hash.slice(2).split('/'), view = parts[0], id = parts[1];
   if (view !== 'case') { stopTimer(); currentCaseId = ''; }
-  $$('dialog[open]').forEach(d => d.close()); stopRun(); window.__next = window.__prev = null; $('#stage').onclick = null;
+  $$('dialog[open]').forEach(d => d.close()); stopRun(); window.__stopDemo?.(); window.__stopDemo = null; window.__next = window.__prev = null; $('#stage').onclick = null;
   $$('[data-nav]').forEach(a => a.classList.toggle('active', a.dataset.nav === (view === 'case' ? 'osce' : view === 'step' ? 'map' : view)));
   const page = (color) => { setView('page-mode', color); pageBar(); };
   if (view === 'step') renderLesson(id, parts[2]);
@@ -449,6 +1431,7 @@ function route() {
   else if (view === 'review') { page('peach'); renderReview(); }
   else if (view === 'tra') renderTra();
   else if (view === 'chot') renderChot(id);
+  else if (view === 'chuong') renderChuong(id);
   else if (view === 'map') renderMap();
   else { page('pink'); renderNotFound(); }
   document.title = (view === 'step' ? (L.find(x => x.id === id)?.title || 'Màn học') + ' · ' : '') + 'zitthenk học Cấp cứu Sản khoa';
@@ -478,7 +1461,7 @@ document.addEventListener('keydown', ev => {
 let tx = 0, ty = 0, tOK = false;
 $('#stage').addEventListener('touchstart', ev => { const t = ev.touches[0]; tx = t.clientX; ty = t.clientY; tOK = !ev.target.closest('.fig,.sim,input,.ctl,.deep-body'); }, { passive: true });
 $('#stage').addEventListener('touchend', ev => { const t = ev.changedTouches[0], dx = t.clientX - tx, dy = t.clientY - ty; if (tOK && Math.abs(dx) > 80 && Math.abs(dy) < 40) { if (dx < 0 && window.__next) window.__next(); else if (dx > 0 && window.__prev) window.__prev(); } }, { passive: true });
-window.ALL_SCREENS = () => ['#/map', ...L.flatMap(l => pagesOf(l).map(p => lessonHash(l, p))), ...M.map(m => '#/chot/' + m.id), '#/tra', '#/osce', '#/osce/guide', ...(window.OSCE_CASES || []).map(c => '#/case/' + c.id)];
+window.ALL_SCREENS = () => ['#/map', ...M.map(m => '#/chuong/' + m.id), ...L.flatMap(l => pagesOf(l).map(p => lessonHash(l, p))), ...M.map(m => '#/chot/' + m.id), '#/tra', '#/osce', '#/osce/guide', ...(window.OSCE_CASES || []).map(c => '#/case/' + c.id)];
 window.addEventListener('hashchange', route); window.addEventListener('beforeunload', stopTimer);
 updateTop(); route();
 })();

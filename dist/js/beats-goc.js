@@ -50,11 +50,11 @@ kit('bg-ba', {
   goal: s => ['me', 'nhau', 'be'].every(k => seen(s, k)),
   draw: s => {
     let o = pic('sv-nhau-binh-thuong.png', 16, 6, 287, 338);
-    o += tap('sel=me', ...pb(505, 330), 20, 46, s.sel === 'me' ? 1 : 0) + tap('sel=nhau', ...pb(310, 75), 62, 20, s.sel === 'nhau' ? 1 : 0) + tap('sel=be', ...pb(300, 245), 22, 22, s.sel === 'be' ? 1 : 0);
+    o += tap('sel=me', ...pb(505, 330), 20, 46, s.sel === 'me' ? 1 : 0) + tap('sel=nhau', ...pb(310, 75), 62, 20, s.sel === 'nhau' ? 1 : 0) + tap('sel=be', ...pb(302, 212), 24, 20, s.sel === 'be' ? 1 : 0);
     const nw = ZS.fresh(s, x => x.sel === s.sel);
     if (s.sel === 'me') o += ZS.fade(drops(...pb(40, 640), 3, .7) + call(...pb(505, 330), 230, 330, 'mạch máu mẹ', C.redD, 'middle'), nw);
     if (s.sel === 'nhau') o += ZS.fade(`<path d="M${pb(380, 52)} Q${pb(430, 40)} ${pb(470, 90)} Q${pb(430, 100)} ${pb(380, 52)}Z" fill="url(#gClot)" opacity=".9"/>` + call(...pb(430, 70), 250, 24, 'bong ra', C.redD), nw);
-    if (s.sel === 'be') o += ZS.fade(`<circle cx="${pb(300, 245)[0]}" cy="${pb(300, 245)[1]}" r="9" fill="none" stroke="${C.red}" stroke-width="3" class="pulse"/>` + drops(...pb(55, 625), 2, .6) + call(...pb(300, 245), 246, 168, 'mạch máu bé', '#3f51b5'), nw);
+    if (s.sel === 'be') o += ZS.fade(`<circle cx="${pb(302, 212)[0]}" cy="${pb(302, 212)[1]}" r="9" fill="none" stroke="${C.red}" stroke-width="3" class="pulse"/>` + drops(...pb(55, 625), 2, .6) + call(...pb(302, 212), 296, 70, 'mạch máu bé', '#3f51b5', 'end'), nw);
     o += card(318, 20, 232, 310);
     o += ['me', 'nhau', 'be'].map((k, i) => { const y = 34 + i * 98, on = s.sel === k, sn = seen(s, k);
       return `<rect x="330" y="${y}" width="208" height="86" rx="14" fill="${on ? C.lav : sn ? '#fbfaff' : '#fff'}" stroke="${on ? C.soft : C.grid}"/>` + (sn ? T(342, y + 30, HONG[k][0], { a: 'start', s: 14 }) + T(342, y + 56, HONG[k][1], { a: 'start', s: 13, c: k === 'be' ? C.redD : C.mute }) : T(434, y + 50, `${i + 1}. chạm vùng ${['thành tử cung', 'bánh nhau', 'dây rốn'][i]}`, { s: 12.5, c: C.soft })); }).join('');
@@ -84,8 +84,9 @@ kit('bu-lop', {
   init: () => ({ sel: '', seen: '' }), ui: () => [], after: (s, k) => { if (k === 'sel') markSeen(s, s.sel); },
   goal: s => ['noi', 'co', 'tm'].every(k => seen(s, k)),
   draw: s => {
-    let o = card(20, 20, 250, 310) + pic('sv-tu-cung.png', 30, 70, 230, 172) + `<circle cx="195" cy="140" r="22" fill="none" stroke="${C.soft}" stroke-width="2"/><path d="M215 132 L300 70" stroke="${C.soft}" stroke-width="1.4" stroke-dasharray="4 4"/>` + T(145, 280, 'tử cung (nhìn trước)', { s: 12.5, c: C.mute });
+    let o = card(20, 20, 250, 310) + pic('sv-tu-cung.png', 30, 70, 230, 172) + `<circle cx="168" cy="128" r="17" fill="none" stroke="${C.soft}" stroke-width="2.2"/><path d="M184 120 L300 70" stroke="${C.soft}" stroke-width="1.4" stroke-dasharray="4 4"/>` + T(145, 280, 'tử cung (nhìn trước)', { s: 12.5, c: C.mute });
     const W = wall(300, 60, 140);
+    o += [['noi', '#ffc2cf'], ['co', '#f3a7ba'], ['tm', '#c9bff0']].map(([k, f], i) => `<rect x="${60 + i * 54}" y="288" width="46" height="16" rx="6" fill="${seen(s, k) ? f : '#f4f0fb'}" stroke="${s.sel === k ? C.red : C.grid}" stroke-width="${s.sel === k ? 2.4 : 1}"/>`).join('') + T(145, 318, 'ba lớp đã khám phá', { s: 11.5, c: C.mute });
     o += T(370, 50, 'lòng tử cung', { s: 12, c: C.mute }) + W.svg + T(370, W.bottom + 18, 'ổ bụng', { s: 12, c: C.mute });
     o += tap('sel=noi', 370, W.yN + 17, 70, 15, s.sel === 'noi' ? 1 : 0) + tap('sel=co', 370, W.yM + 75, 70, 60, s.sel === 'co' ? 1 : 0) + tap('sel=tm', 370, W.yS + 7, 70, 10, s.sel === 'tm' ? 1 : 0);
     const L = [['noi', W.yN + 17, 'Nội mạc', 'nhau bám vào đây'], ['co', W.yM + 70, 'Cơ tử cung', 'co rút → siết mạch'], ['tm', W.yS + 8, 'Thanh mạc', 'lớp áo ngoài']];
@@ -101,21 +102,21 @@ const uterusLS = (L, tl) => {
   return `<path d="${outer}" fill="url(#gMyo)" stroke="${C.myoD}" stroke-width="1.3"/><path d="${inner}" fill="#fffafc" stroke="${C.decid}" stroke-width="3"/>`;
 };
 kit('bu-doan', {
-  init: () => ({ w: 20 }), ui: () => [{ t: 'range', k: 'w', label: '🤰 Tuổi thai', min: 20, max: 40, step: 2, unit: ' tuần' }], goal: s => s.w >= 36,
+  init: () => ({ w: 20 }), ui: () => [], goal: s => s.w >= 36,
   draw: s => {
     const g = (s.w - 20) / 20, L = 10 + 46 * g, tl = 16 - 12 * g, ly = 228 + L;
     let o = card(20, 20, 330, 316, '#fffdfa') + uterusLS(L, tl);
     o += `<circle cx="180" cy="${200 + L * .7}" r="${34 + 10 * g}" fill="url(#gSkin)" stroke="${C.skinD}" stroke-width="1.2"/>` + T(180, 205 + L * .7, 'đầu thai', { s: 12, c: C.skinD });
     o += `<path d="M274 128 H296" stroke="${C.ink}" stroke-width="1.6" marker-start="url(#ar)" marker-end="url(#ar)"/>` + Th(300, 112, 'thân: dày', { a: 'start', s: 13 });
     o += `<path d="M${226 - tl} ${228 + L * .55} L${240} ${228 + L * .55}" stroke="${C.redD}" stroke-width="1.6"/>` + Th(246, 246 + L * .5, 'đoạn dưới', { a: 'start', s: 13, c: C.redD }) + Th(246, 262 + L * .5, tl < 7 ? 'MỎNG' : 'còn dày', { a: 'start', s: 13, c: C.redD });
-    o += card(362, 20, 188, 316) + T(456, 54, s.w + ' tuần', { s: 22 });
+    o += card(362, 20, 188, 316) + ZS.BK.scrub('w', s.w, 20, 40, 2, ' tuần', 456, 54);
     o += T(380, 98, 'Bề dày thân', { a: 'start', s: 13, c: C.mute }) + ZS.bar(380, 106, 150, 85, C.myoD, '', { h: 12 });
     o += T(380, 150, 'Bề dày đoạn dưới', { a: 'start', s: 13, c: C.mute }) + ZS.bar(380, 158, 150, tl / 16 * 85, tl < 7 ? C.red : C.myoD, '', { h: 12 });
     o += T(380, 202, 'Chiều dài đoạn dưới', { a: 'start', s: 13, c: C.mute }) + ZS.bar(380, 210, 150, 15 + 80 * g, C.soft, '', { h: 12 });
     if (s.w >= 36) o += ZS.fade(verdict(374, 250, 164, false, 'vùng yếu', 'ít cơ · mỏng'), ZS.fresh(s, x => x.w >= 36));
     return o;
   },
-  say: s => s.w >= 36 ? ['worry', 'Cuối thai kỳ **đoạn dưới** dài ra và **giãn mỏng**; khối **cơ dày** vẫn ở **thân** tử cung — nơi co rút cầm máu mạnh nhất.'] : ['happy', 'Kéo thanh **🤰 Tuổi thai** — nhìn phần dưới tử cung thay đổi 👆']
+  say: s => s.w >= 36 ? ['worry', 'Cuối thai kỳ **đoạn dưới** dài ra và **giãn mỏng**; khối **cơ dày** vẫn ở **thân** tử cung — nơi co rút cầm máu mạnh nhất.'] : ['happy', 'Rê ngang con số **[ 20 ] tuần** — nhìn phần dưới tử cung thay đổi 👆']
 });
 // mạch máu xuyên qua khối cơ: k = sức siết (thân 1, đoạn dưới .35)
 const vesselBlock = (x, title, rings, k, co) => {
@@ -136,11 +137,11 @@ kit('bu-seo', {
   init: () => ({ xray: false, kieu: 'doc' }), ui: s => [{ t: 'tog', k: 'xray', label: '👁 Nhìn xuyên da' }, ...(s.xray ? [{ t: 'seg', k: 'kieu', opts: [['ngang', 'ngang'], ['doc', 'dọc'], ['T', 'chữ T']] }] : [])], goal: s => s.xray,
   draw: s => {
     let o = card(20, 20, 290, 310) + `<svg x="30" y="22" width="270" height="306" viewBox="20 250 260 294.8" preserveAspectRatio="xMidYMid slice"><image href="${ZS.BK.I}sv-phu-nu.png" width="297" height="1060"/></svg>`;
-    o += `<path d="M122 266 Q165 276 208 266" fill="none" stroke="#b46a7a" stroke-width="3" stroke-linecap="round"/>` + [130, 145, 160, 175, 190, 202].map(x => `<path d="M${x} 262 v10" stroke="#b46a7a" stroke-width="1.4"/>`).join('') + Th(165, 296, 'sẹo da: NGANG', { s: 13, c: '#9a4f60' });
-    if (s.xray) {
-      const nw = ZS.fresh(s, x => x.xray), cut = s.kieu === 'ngang' ? 'M140 235 Q165 243 190 235' : s.kieu === 'doc' ? 'M165 150 V222' : 'M140 235 Q165 243 190 235 M165 236 V170';
-      o += ZS.fade(`<g opacity=".93">${pic('sv-tu-cung.png', 90, 130, 150, 112)}</g><path d="${cut}" fill="none" stroke="${C.red}" stroke-width="4" stroke-linecap="round" stroke-dasharray="7 4"/>`, nw);
+        if (s.xray) {
+      const nw = ZS.fresh(s, x => x.xray), cut = s.kieu === 'ngang' ? 'M153 275 Q164 280 177 275' : s.kieu === 'doc' ? 'M164 240 V273' : 'M153 275 Q164 280 177 275 M164 275 V242';
+      o += ZS.fade(`<g opacity=".93">${pic('sv-tu-cung.png', 112, 232, 104, 78)}</g><path d="${cut}" fill="none" stroke="${C.red}" stroke-width="4" stroke-linecap="round" stroke-dasharray="7 4"/>`, nw);
     }
+    o += `<path d="M124 256 Q165 264 206 256" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round"/><path d="M124 256 Q165 264 206 256" fill="none" stroke="#b46a7a" stroke-width="3" stroke-linecap="round"/>` + [132, 146, 160, 174, 188, 200].map(x => `<path d="M${x} 252 v9" stroke="#b46a7a" stroke-width="1.4"/>`).join('') + Th(120, 262, 'sẹo da: NGANG', { a: 'end', s: 13, c: '#9a4f60' });
     o += card(322, 20, 228, 310) + T(436, 56, 'Sẹo trên DA', { s: 13, c: C.mute }) + T(436, 82, 'ngang', { s: 18 });
     o += `<path d="M346 108 H526" stroke="${C.grid}"/>` + T(436, 140, 'Sẹo trên TỬ CUNG', { s: 13, c: C.mute }) + (s.xray ? T(436, 168, TYPE[s.kieu][0], { s: 17, c: TYPE[s.kieu][2] }) + T(436, 192, TYPE[s.kieu][1], { s: 13, c: C.mute }) : T(436, 172, '?', { s: 30, c: C.soft }));
     o += `<rect x="340" y="236" width="192" height="72" rx="14" fill="${C.butter}"/>` + T(436, 264, '📄 Muốn biết →', { s: 14 }) + T(436, 288, 'đọc BIÊN BẢN MỔ', { s: 14, c: C.redD });
@@ -250,8 +251,9 @@ kit('bo-dong', {
   init: () => ({ loss: 0 }), ui: () => [{ t: 'range', k: 'loss', label: '🩸 Máu mất', min: 0, max: 40, step: 5, unit: '%' }], goal: s => s.loss >= 30,
   draw: s => {
     const sv = Math.round(70 * (1 - 1.4 * s.loss / 100)), hr = Math.round(80 + 1.2 * s.loss), co = hr * sv / 1000, rel = co / 5.6;
-    let o = card(20, 20, 530, 230, '#fffdfa') + `<g class="beat" style="animation-duration:${(60 / hr).toFixed(2)}s">${pic('sv-tim.png', 40, 60, 140, 184)}</g>`;
-    o += `<path d="${VESSEL}" stroke="${C.redD}" stroke-width="34" stroke-linecap="round"/><path d="${VESSEL}" stroke="#ffb3b8" stroke-width="28" stroke-linecap="round"/>` + rbcFlow(VESSEL, 7, (2.2 / rel).toFixed(2)) + tissue(rel);
+    const hs = (.8 + .2 * sv / 70).toFixed(3);
+    let o = card(20, 20, 530, 230, '#fffdfa') + `<g transform="translate(110 152) scale(${hs}) translate(-110 -152)"><g class="beat" style="animation-duration:${(60 / hr).toFixed(2)}s">${pic('sv-tim.png', 40, 60, 140, 184)}</g></g>`;
+    o += `<path d="${VESSEL}" stroke="${C.redD}" stroke-width="34" stroke-linecap="round"/><path d="${VESSEL}" stroke="#ffb3b8" stroke-width="28" stroke-linecap="round"/>` + rbcFlow(VESSEL, Math.max(3, Math.round(7 * rel * rel)), (2.2 / rel).toFixed(2)) + tissue(rel);
     o += T(330, 140, 'dòng hồng cầu', { s: 12.5, c: C.mute });
     o += vital(30, 262, 'Nhịp tim', hr, '#ff8fa8', 112) + vital(150, 262, 'Nhát bóp mL', sv, sv < 45 ? '#ffb15c' : '#7ee2b8', 118) + vital(276, 262, 'Cung lượng L/ph', co.toFixed(1), rel < .75 ? '#ff6b7a' : '#7ee2b8', 136);
     o += `<rect x="420" y="262" width="126" height="46" rx="10" fill="${rel < .75 ? '#ffd0d8' : C.mint}"/>` + T(483, 279, 'oxy tới mô', { s: 11.5, c: C.mute }) + T(483, 301, Math.round(rel * 100) + '%', { s: 20, c: rel < .75 ? C.redD : C.green }) + T(285, 330, 'số minh họa xu hướng', { s: 10.5, c: C.mute });
@@ -291,7 +293,7 @@ kit('bo-bu', {
   },
   say: s => s.loss >= 30 ? ['ouch', 'Hết sức bù → **HA tụt**: sốc **mất bù** — đã rất muộn.'] : s.loss >= 15 ? ['worry', 'HA **vẫn ổn** nhưng tim **nhanh**, tay **lạnh**: giao cảm co mạch để ưu tiên **não, tim**. Đây đã là **sốc còn bù**.'] : ['happy', 'Kéo thanh **🩸 Máu mất** — nhìn tim, bàn tay và hai đường trên đồ thị 👆']
 });
-const SIGNS = [['nao', 148, 75, 'Tri giác', 'lo âu → lơ mơ'], ['tim', 150, 270, 'Mạch', 'nhanh dần'], ['ha', 250, 360, 'Huyết áp', 'có thể còn bình thường'], ['da', 40, 560, 'Da', 'lạnh, làm đầy mao mạch chậm'], ['than', 148, 420, 'Nước tiểu', 'ít đi'], ['mau', 148, 520, 'Máu', 'đang chảy? máu kín?']];
+const SIGNS = [['nao', 148, 75, 'Tri giác', 'lo âu → lơ mơ'], ['tim', 175, 268, 'Mạch', 'nhanh dần'], ['ha', 262, 330, 'Huyết áp', 'có thể còn bình thường'], ['than', 150, 490, 'Nước tiểu', 'ít đi'], ['mau', 150, 566, 'Máu', 'đang chảy? máu kín?'], ['da', 32, 575, 'Da', 'lạnh, làm đầy mao mạch chậm']];
 kit('bo-doc', {
   init: () => ({ seen: '' }), ui: () => [], after: (s, k) => markSeen(s, k), goal: s => SIGNS.every(([k]) => seen(s, k)),
   draw: s => {
@@ -353,20 +355,19 @@ kit('bb-kin', {
   say: s => s.soi ? ['ouch', 'Máu có thể **nằm trong**: sau nhau, ổ bụng, khối máu tụ. **Ít máu ngoài mà mẹ sốc** → đi tìm máu kín ngay.'] : ['worry', 'Băng thấm **ít** mà mạch 132, HA 82/50 — vô lý? Bấm **🔦 Soi máu kín** 👆']
 });
 kit('bb-song', {
-  init: () => ({ cach: '', seen: '' }), ui: () => [{ t: 'seg', k: 'cach', opts: [['hoi', '🗣 Hỏi kỹ rồi mới gọi'], ['song', '⚡ Gọi đội + hồi sức song song']] }], after: (s, k) => markSeen(s, s.cach), goal: s => seen(s, 'hoi') && s.cach === 'song',
+  init: () => ({ d: 7, late: true }), ui: () => [], after: s => { if (s.d >= 6) s.late = true; }, goal: s => s.late && s.d <= 1,
   draw: s => {
-    const late = s.cach === 'hoi', on = !!s.cach, X = m => 150 + m * 36;
+    const d = s.d, X = m => 150 + m * 36, ok = d <= 1, bad = d >= 5, yE = Math.round(206 + 4.2 * d);
     let o = card(20, 20, 530, 316, '#fffdfa') + [0, 2, 4, 6, 8, 10].map(m => `<path d="M${X(m)} 52 V250" stroke="${C.grid}"/>` + T(X(m), 46, m + "′", { s: 11.5, c: C.mute })).join('');
     o += T(140, 98, '🔍 Tìm nguyên nhân', { a: 'end', s: 13.5 }) + T(140, 158, '🚑 Hồi sức', { a: 'end', s: 13.5 }) + T(140, 222, '🤰 Tình trạng mẹ', { a: 'end', s: 13.5 });
-    if (on) {
-      o += `<rect x="${X(0)}" y="82" width="${X(9) - X(0)}" height="26" rx="13" fill="${C.sky}"><animate attributeName="width" from="0" to="${X(9) - X(0)}" dur="1.2s" fill="freeze"/></rect>`;
-      o += `<rect x="${X(late ? 7 : 0)}" y="142" width="${X(10) - X(late ? 7 : 0)}" height="26" rx="13" fill="${late ? '#ffb15c' : C.mintD}"><animate attributeName="width" from="0" to="${X(10) - X(late ? 7 : 0)}" dur="1.2s" begin="${late ? '.6s' : '0s'}" fill="freeze"/></rect>` + (late ? T(X(3.5), 160, 'chờ hỏi xong…', { s: 12.5, c: '#b5651d' }) : '');
-      o += `<path d="M${X(0)} 210 ${late ? `L${X(5)} 214 L${X(7)} 236 L${X(10)} 244` : `L${X(4)} 214 L${X(10)} 208`}" fill="none" stroke="${late ? C.red : C.green}" stroke-width="4" stroke-linecap="round" pathLength="1" stroke-dasharray="1"><animate attributeName="stroke-dashoffset" from="1" to="0" dur="1.4s" fill="freeze"/></path>`;
-      o += verdict(150, 268, 380, !late, late ? 'Mẹ xấu đi trong lúc chờ' : 'Mẹ được giữ ổn định', late ? 'hồi sức trễ 7 phút' : 'tên bệnh tìm song song');
-    } else o += T(335, 160, '👆 chọn một cách làm ở trên', { s: 15, c: C.soft });
+    o += `<rect x="${X(0)}" y="82" width="${X(9) - X(0)}" height="26" rx="13" fill="${C.sky}"/>`;
+    o += `<rect x="${X(d)}" y="142" width="${X(10) - X(d)}" height="26" rx="13" fill="${bad ? '#ffb15c' : C.mintD}"/>` + (d > 1 ? T(X(d / 2), 160, 'chờ…', { s: 12.5, c: '#b5651d' }) : '');
+    o += `<path d="M${X(0)} 210 L${X(4)} ${210 + Math.round(d * 1.2)} L${X(7)} ${214 + Math.round(d * 2.6)} L${X(10)} ${yE}" fill="none" stroke="${bad ? C.red : ok ? C.green : C.amber}" stroke-width="4" stroke-linecap="round"/>`;
+    o += T(82, 266, 'bắt đầu hồi sức sau', { s: 11.5, c: C.mute }) + ZS.BK.scrub('d', d, 0, 10, 1, '′', 82, 292);
+    o += verdict(170, 268, 360, ok, ok ? 'Mẹ được giữ ổn định' : bad ? 'Mẹ xấu đi trong lúc chờ' : 'Mẹ bắt đầu xấu đi', ok ? 'hồi sức ngay, tên bệnh tìm song song' : 'hồi sức trễ ' + d + ' phút');
     return o;
   },
-  say: s => s.cach === 'song' && seen(s, 'hoi') ? ['wow', 'Mẹ bất ổn: **gọi đội + hồi sức ngay**, tìm nguyên nhân **song song**. Đừng để việc đặt tên bệnh làm chậm cấp cứu.'] : s.cach === 'hoi' ? ['ouch', 'Hỏi bệnh thật kỹ rồi mới gọi → hồi sức **trễ**, mẹ xấu đi. Thử cách còn lại 👆'] : ['happy', 'Mẹ đang chảy máu, sinh hiệu xấu. Thử **cả hai cách làm** ở trên 👆']
+  say: s => s.late && s.d <= 1 ? ['wow', 'Mẹ bất ổn: **gọi đội + hồi sức ngay**, tìm nguyên nhân **song song**. Đừng để việc đặt tên bệnh làm chậm cấp cứu.'] : s.d >= 5 ? ['ouch', 'Hỏi bệnh thật kỹ rồi mới hồi sức → **trễ ' + s.d + ' phút**, mẹ xấu đi. Rê số về **0′** 👆'] : ['happy', 'Mẹ đang chảy máu, sinh hiệu xấu. Rê ngang số **[ 7′ ]** — hồi sức bắt đầu **sau bao lâu**? 👆']
 });
 B['ban-do-xuat-huyet'] = [
   { t: 'Bản đồ thời điểm chảy máu', kit: 'bb-tg', cr: 'Nhau & tử cung: ' + SV },
@@ -418,8 +419,8 @@ kit('bt-khan', {
   draw: s => {
     const w = s.wait;
     let o = card(20, 20, 300, 316, '#fffdfa') + T(170, 50, 'Mẹ / thai nguy kịch', { s: 15, c: C.redD });
-    o += [['🚨 Gọi đội', 0], ['💉 ABC · đường truyền · máu', 1], ['🏥 Chuẩn bị sinh / cầm máu', 2]].map(([t, i]) => `<rect x="40" y="${74 + i * 56}" width="260" height="44" rx="14" fill="${w && i === 2 ? '#f4f0fb' : C.mint}" stroke="${w && i === 2 ? C.grid : C.mintD}"/>` + T(56, 101 + i * 56, t, { a: 'start', s: 13.5, c: w && i === 2 ? C.mute : C.ink }) + (w && i === 2 ? T(290, 101 + i * 56, '⏸', { a: 'end', s: 15 }) : T(290, 101 + i * 56, '▶', { a: 'end', s: 13, c: C.green }))).join('');
-    o += T(170, 270, 'cùng lúc, không chờ nhau', { s: 13, c: C.green }) + (w ? T(170, 298, '⏳ đang chờ kết quả…', { s: 14, c: '#b5651d' }) : '');
+    o += [['🚨 Gọi đội', 0], ['💉 ABC · đường truyền · máu', 1], ['🏥 Chuẩn bị sinh / cầm máu', 2]].map(([t, i]) => `<rect x="40" y="${74 + i * 56}" width="260" height="44" rx="14" fill="${w && i === 2 ? '#f4f0fb' : s.sw && !w ? '#bdeed3' : C.mint}" stroke="${w && i === 2 ? C.grid : C.mintD}"/>` + T(56, 101 + i * 56, t, { a: 'start', s: 13.5, c: w && i === 2 ? C.mute : C.ink }) + (w && i === 2 ? T(290, 101 + i * 56, '⏸', { a: 'end', s: 15 }) : T(290, 101 + i * 56, s.sw && !w ? '✓' : '▶', { a: 'end', s: 14, c: C.green }))).join('');
+    o += T(170, 270, s.sw && !w ? '✓ đã làm cùng lúc, không chờ nhau' : 'cùng lúc, không chờ nhau', { s: 13, c: C.green }) + (w ? T(170, 298, '⏳ đang chờ kết quả…', { s: 14, c: '#b5651d' }) : '');
     const fhr = w ? 80 : 140;
     o += card(332, 20, 218, 316) + heart(400, 120, 50, fhr, w ? C.red : '#ff8fa8') + T(470, 112, 'tim thai', { a: 'start', s: 12.5, c: C.mute }) + T(470, 138, fhr, { a: 'start', s: 22, c: w ? C.redD : C.ink });
     o += `<g transform="translate(441 236)"><circle r="44" fill="#fff" stroke="${C.soft}" stroke-width="2"/><path d="M0 0 V-34" stroke="${C.red}" stroke-width="3" stroke-linecap="round">${w ? '<animateTransform attributeName="transform" type="rotate" from="0" to="360" dur="2.5s" repeatCount="indefinite"/>' : ''}</path><circle r="4" fill="${C.red}"/></g>` + T(441, 304, w ? 'thời gian trôi…' : 'không chờ', { s: 13, c: w ? C.redD : C.green });

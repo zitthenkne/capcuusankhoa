@@ -23,43 +23,95 @@ kit('bd-cang', {
   },
   say: s => s.v >= 80 ? ['worry', 'Tử cung **quá căng** (đa thai, đa ối, thai to) → sợi cơ bị kéo dài, **co kém sau sinh** → dễ băng huyết. Biết trước để **chuẩn bị**.'] : ['happy', 'Kéo thanh **🎈 Tử cung căng** — nhìn thành cơ khi tử cung phồng to 👆']
 });
-const RF = [['bh', 'Từng BHSS'], ['mo', 'Mổ / can thiệp tử cung'], ['dm', 'Rối loạn đông máu'], ['ntd', 'Nhau tiền đạo / PAS'], ['tm', 'Thiếu máu'], ['cd', 'Chuyển dạ kéo dài / quá nhanh'], ['tc', 'Tăng co kéo dài'], ['nt', 'Nhiễm trùng ối'], ['sg', 'Sinh giúp dụng cụ']];
+const RF_ZONES = [
+  ['tc', '🎈 Tử cung quá căng', 'Đa thai · đa ối · thai to', 105, 140, 'cơ bị kéo dãn quá mức'],
+  ['seo', '✂️ Vết mổ cũ tử cung', 'Mổ cũ · bóc u xơ', 105, 205, 'sẹo xơ dính, nguy cơ PAS'],
+  ['mau', '🩸 Thiếu máu · đông máu', 'Hb thấp · rối loạn đông', 85, 75, 'kém dung nạp mất máu'],
+  ['cd', '⏱️ Chuyển dạ kéo dài', 'Tăng co dồn · sinh giúp', 95, 260, 'cơ mỏi, nhiễm trùng ối']
+];
 kit('bd-phieu', {
-  init: () => Object.fromEntries(RF.map(([k]) => [k, false])), ui: () => [], goal: s => RF.filter(([k]) => s[k]).length >= 3,
+  init: () => ({ tc: false, seo: false, mau: false, cd: false }), ui: () => [],
+  goal: s => RF_ZONES.filter(([k]) => s[k]).length >= 3,
   draw: s => {
-    const n = RF.filter(([k]) => s[k]).length;
-    let o = `<rect x="20" y="20" width="350" height="316" rx="14" fill="#fffdf4" stroke="${C.butterD}"/>` + T(195, 44, '📋 Phiếu nguy cơ', { s: 15 });
-    o += RF.map(([k, t], i) => { const y = 58 + i * 30, on = s[k]; return `<g class="tap" data-set="!${k}"><rect x="34" y="${y}" width="322" height="26" rx="8" fill="${on ? '#ffe0e6' : '#fff'}" stroke="${on ? C.pinkD : C.grid}"/><rect x="42" y="${y + 6}" width="14" height="14" rx="4" fill="${on ? C.red : '#fff'}" stroke="${C.soft}"/>${on ? T(49, y + 18, '✓', { s: 11, c: '#fff' }) : ''}${T(66, y + 18, t, { a: 'start', s: 13 })}</g>`; }).join('');
+    const n = RF_ZONES.filter(([k]) => s[k]).length;
+    let o = card(20, 20, 320, 316, '#fffdfa');
+    o += `<svg x="26" y="26" width="130" height="300" viewBox="190 230 340 550" preserveAspectRatio="xMidYMid meet"><image href="${ZS.BK.I}sv-mang-thai.png" width="560" height="966"/></svg>`;
+    o += RF_ZONES.map(([k, t, sub, hx, hy, mech]) => {
+      const on = s[k];
+      return `<g class="tap" data-set="!${k}">${on ? `<circle cx="${hx}" cy="${hy}" r="18" fill="none" stroke="${C.red}" stroke-width="2.5" class="pulse"/><circle cx="${hx}" cy="${hy}" r="6" fill="${C.red}"/>` : `<circle cx="${hx}" cy="${hy}" r="12" fill="#fff" fill-opacity=".3" stroke="${C.soft}" stroke-width="1.8" stroke-dasharray="4 3"/>`}</g>`;
+    }).join('');
+    o += RF_ZONES.map(([k, t, sub], i) => {
+      const y = 38 + i * 70, on = s[k];
+      return `<g class="tap" data-set="!${k}">${card(156, y, 174, 62, on ? '#ffe6ec' : '#fff', on ? C.red : C.grid)}<rect x="164" y="${y + 8}" width="16" height="16" rx="4" fill="${on ? C.red : '#fff'}" stroke="${on ? C.redD : C.soft}"/>${on ? T(172, y + 21, '✓', { s: 12, c: '#fff' }) : ''}${T(186, y + 21, t, { a: 'start', s: 12.5 })}${T(164, y + 46, sub, { a: 'start', s: 10.5, c: on ? C.redD : C.mute })}</g>`;
+    }).join('');
     const lv = n >= 3 ? 2 : n ? 1 : 0;
-    o += card(382, 20, 168, 316, ['#fff', '#fff3c4', '#ffe0e6'][lv], C.grid) + T(466, 52, n + ' yếu tố', { s: 18 });
-    o += [['💉', '2 đường truyền'], ['🩸', 'nhóm máu, xét nghiệm'], ['📣', 'báo đội & ngân hàng máu'], ['🏥', 'sinh nơi đủ điều kiện']].map(([ic, t], i) => `<g opacity="${lv === 2 || (lv === 1 && i < 2) ? 1 : .25}">${T(398, 96 + i * 52, ic, { a: 'start', s: 18 })}${ZS.wrap(t, 13).map((l, j) => T(426, 92 + i * 52 + j * 16, l, { a: 'start', s: 12.5 })).join('')}</g>`).join('');
+    o += card(350, 20, 190, 316, ['#fff', '#fff8eb', '#ffeef2'][lv], C.grid);
+    o += T(445, 48, n + ' yếu tố nguy cơ', { s: 16, c: lv === 2 ? C.redD : C.ink });
+    o += [['💉', '2 đường truyền lớn 16–18G'], ['🩸', 'Định nhóm máu, dự trù máu'], ['📣', 'Báo kíp mổ & ngân hàng máu'], ['🏥', 'Sinh nơi có mổ cấp cứu']].map(([ic, t], i) => {
+      const act = lv === 2 || (lv === 1 && i < 2);
+      return `<g opacity="${act ? 1 : .28}" class="${act ? 'fadein' : ''}"><rect x="360" y="${68 + i * 54}" width="170" height="46" rx="10" fill="${act ? '#fff' : '#f8f6fc'}" stroke="${act ? C.mintD : C.grid}" stroke-width="${act ? 1.4 : 1}"/>${T(374, 96 + i * 54, ic, { s: 18 })}${ZS.wrap(t, 16).map((l, j) => T(396, 88 + i * 54 + j * 16, l, { a: 'start', s: 11.5 })).join('')}</g>`;
+    }).join('');
+    if (n >= 3) o += ZS.fade(verdict(360, 292, 170, true, '✓ SẴN SÀNG DỰ PHÒNG'), ZS.fresh(s, x => RF_ZONES.filter(([k]) => x[k]).length >= 3));
     return o;
   },
-  say: s => RF.filter(([k]) => s[k]).length >= 3 ? ['happy', 'Có nguy cơ → **chuẩn bị theo mức**: đường truyền, nhóm máu, xét nghiệm, báo đội & ngân hàng máu, sinh nơi đủ điều kiện.'] : ['happy', 'Hỏi bệnh để **tìm nguy cơ**. Đánh dấu vài yếu tố trên phiếu 👆']
+  say: s => RF_ZONES.filter(([k]) => s[k]).length >= 3 ? ['happy', 'Có nguy cơ → **chuẩn bị theo mức**: 2 đường truyền lớn, nhóm máu, báo kíp mổ & ngân hàng máu, sinh nơi đủ điều kiện.'] : ['happy', 'Chạm các **điểm nguy cơ** trên cơ thể mẹ để chuẩn bị các lớp dự phòng 👆']
 });
 kit('bd-hb', {
-  init: () => ({ sat: false, loss: 0 }), ui: () => [{ t: 'tog', k: 'sat', label: '💊 Điều trị thiếu máu khi mang thai' }, { t: 'range', k: 'loss', label: '🩸 Mất máu khi sinh', min: 0, max: 100, step: 10, unit: '%' }], goal: s => s.sat && s.loss >= 60,
+  init: () => ({ sat: false, loss: 0 }), ui: () => [{ t: 'tog', k: 'sat', label: '💊 Điều trị thiếu máu khi mang thai' }, { t: 'range', k: 'loss', label: '🩸 Mất máu khi sinh', min: 0, max: 100, step: 10, unit: '%' }],
+  goal: s => s.sat && s.loss >= 60,
   draw: s => {
-    const base = s.sat ? .85 : .5, lvl = Math.max(.04, base - .4 * s.loss / 100), Y = l => 290 - 220 * l, danger = .3;
-    let o = card(20, 20, 300, 316, '#fffdfa') + T(170, 46, 'Dự trữ hồng cầu', { s: 15 });
-    o += `<rect x="110" y="70" width="120" height="220" rx="16" fill="#fff" stroke="${C.soft}" stroke-width="2"/><rect x="112" y="${Y(lvl)}" width="116" height="${290 - Y(lvl) - 2}" rx="14" fill="${lvl < danger ? '#e5484d' : '#c8283c'}">${ZS.tw('y', s._p ? Y(Math.max(.04, (s._p.sat ? .85 : .5) - .4 * s._p.loss / 100)) : null, Y(lvl))}${ZS.tw('height', s._p ? 288 - Y(Math.max(.04, (s._p.sat ? .85 : .5) - .4 * s._p.loss / 100)) : null, 288 - Y(lvl))}</rect>`;
-    o += `<path d="M104 ${Y(danger)} H236" stroke="${C.red}" stroke-width="2" stroke-dasharray="6 4"/>` + Th(102, Y(danger) + 4, 'ngưỡng nguy', { a: 'end', s: 12, c: C.redD }) + Th(102, Y(base) + 4, s.sat ? 'Hb tốt lên' : 'Hb thấp sẵn', { a: 'end', s: 12, c: C.mute });
-    o += card(332, 20, 218, 316) + T(441, 60, 'Còn bao xa tới ngưỡng?', { s: 13, c: C.mute }) + T(441, 110, lvl < danger ? 'QUA NGƯỠNG' : Math.round((lvl - danger) * 100) + ' phần', { s: lvl < danger ? 20 : 26, c: lvl < danger ? C.redD : C.green });
-    o += T(441, 170, s.sat ? '✓ khoảng dự trữ rộng' : '⚠ dự trữ mỏng', { s: 14, c: s.sat ? C.green : '#b5651d' }) + T(441, 300, 'số minh họa', { s: 10.5, c: C.mute });
+    const f = s.loss / 100, baseHb = s.sat ? 11.5 : 7.2, resHb = Math.max(2.5, baseHb - 5.5 * f);
+    const po2 = Math.max(15, Math.round((s.sat ? 95 : 62) - 45 * f)), danger = po2 < 42;
+    const rbcCount = s.sat ? Math.max(3, Math.round(12 - 7 * f)) : Math.max(1, Math.round(5 - 4 * f));
+    let o = card(20, 20, 315, 316, danger ? '#fff0f2' : '#fffdfa');
+    o += T(177, 44, 'Vi tuần hoàn & Oxy mô cơ tử cung', { s: 13.5 });
+    // Khối cơ tử cung
+    o += `<rect x="35" y="60" width="285" height="180" rx="14" fill="${danger ? '#784c60' : '#ffd3dc'}" stroke="${danger ? '#542d3e' : C.myoD}" stroke-width="2"/>`;
+    o += [0, 1, 2, 3].map(i => `<path d="M45 ${85 + i * 40} Q177 ${95 + i * 40} 310 ${85 + i * 40}" fill="none" stroke="${danger ? '#5a3447' : '#e08ca0'}" stroke-width="3" stroke-dasharray="16 8"/>`).join('');
+    // Lòng mạch máu nuôi cơ
+    const VPATH = 'M40 150 C100 150 120 100 180 100 C240 100 260 150 315 150';
+    o += `<path d="${VPATH}" fill="none" stroke="${danger ? '#962d3a' : C.redD}" stroke-width="24" stroke-linecap="round"/>`;
+    o += `<path d="${VPATH}" fill="none" stroke="${danger ? '#ba3e4c' : '#ff858a'}" stroke-width="18" stroke-linecap="round"/>`;
+    // Hồng cầu mang O2 chạy trong mạch
+    o += [...Array(rbcCount)].map((_, i) => {
+      const t = (i + 1) / (rbcCount + 1), px = 55 + t * 240, py = 150 - Math.sin(t * Math.PI) * 44;
+      return `<g transform="translate(${px} ${py})"><ellipse rx="8" ry="5.5" fill="#e5484d" stroke="#b8323a" stroke-width="1.2"/><ellipse rx="4" ry="2.5" fill="#f4787d"/><circle cx="2" cy="-2" r="3" fill="#ffe066" stroke="#c49700" stroke-width=".8"/></g>`;
+    }).join('');
+    // Máu phun khi mất máu
+    if (f > .1) o += drops(270, 160, Math.round(f * 4), .8, 14);
+    o += `<circle cx="50" cy="222" r="4" fill="#ffe066" stroke="#c49700"/>` + T(62, 226, 'phân tử O₂', { a: 'start', s: 11, c: '#b8860b' });
+    o += `<ellipse cx="140" cy="222" rx="7" ry="4.5" fill="#e5484d"/>` + T(154, 226, 'hồng cầu', { a: 'start', s: 11, c: C.redD });
+    o += Th(177, 266, danger ? '⚠ Mô cơ thiếu oxy → đờ tử cung!' : '✓ Mô cơ đủ oxy → co hồi tốt', { s: 12.5, c: danger ? C.redD : C.green });
+    // Bảng bên phải
+    o += card(345, 20, 195, 316);
+    o += T(442, 48, 'Dự trữ oxy mô', { s: 13, c: C.mute });
+    o += vital(355, 62, 'Oxy mô (PO₂)', po2 + ' mmHg', danger ? C.redD : C.green, 175);
+    o += vital(355, 120, 'Hb ước tính', resHb.toFixed(1) + ' g/dL', resHb < 6 ? C.redD : C.ink, 175);
+    o += T(442, 190, 'Khoảng đệm an toàn', { s: 12, c: C.mute });
+    o += ZS.bar(360, 202, 165, Math.max(4, po2), danger ? C.red : C.green, '', { h: 14 });
+    o += T(442, 246, s.sat ? '✓ ĐÃ ĐIỀU TRỊ THIẾU MÁU' : '⚠ CHƯA ĐIỀU TRỊ THIẾU MÁU', { s: 11.5, c: s.sat ? C.green : '#c0561a' });
+    o += ZS.wrap(s.sat ? 'Dự trữ dồi dào, chịu được mất máu' : 'Dự trữ mỏng, tụt oxy mô rất nhanh', 18).map((l, j) => T(442, 268 + j * 16, l, { s: 11.5, c: C.mute })).join('');
     return o;
   },
-  say: s => s.sat && s.loss >= 60 ? ['wow', 'Thiếu máu làm mẹ **kém dung nạp** mất máu. Điều trị thiếu máu trong thai kỳ = **thêm khoảng dự trữ** trước khi sinh.'] : ['happy', 'Kéo **🩸 Mất máu**, rồi bật **💊 Điều trị thiếu máu** và kéo lại — so khoảng cách tới ngưỡng 👆']
+  say: s => s.sat && s.loss >= 60 ? ['wow', 'Thiếu máu làm mẹ **kém dung nạp** mất máu. Điều trị thiếu máu trong thai kỳ = **thêm khoảng dự trữ** trước khi sinh.'] : ['happy', 'Kéo **🩸 Mất máu**, rồi bật **💊 Điều trị thiếu máu** và kéo lại — so oxy mô 👆']
 });
 kit('bd-moi', {
-  init: () => ({ run: false }), ui: () => [{ t: 'tog', k: 'run', label: '▶ Cho 20 mẹ “không nguy cơ” sinh' }], goal: s => s.run,
+  init: () => ({ run: false }), ui: () => [{ t: 'tog', k: 'run', label: '▶ Theo dõi 2 giờ đầu sau sinh' }], goal: s => s.run,
   draw: s => {
-    let o = card(20, 20, 530, 316, '#fffdfa') + T(285, 46, '20 sản phụ — phiếu nguy cơ đều trống', { s: 14 });
-    o += [...Array(20)].map((_, i) => { const x = 46 + (i % 10) * 49, y = 64 + Math.floor(i / 10) * 118, hit = s.run && (i === 6 || i === 13);
-      return `<g ${hit ? 'class="fadein"' : ''}>${pic('sv-phu-nu.png', x, y, 28, 100)}${hit ? `<circle cx="${x + 14}" cy="${y + 56}" r="26" fill="none" stroke="${C.red}" stroke-width="3" class="pulse"/>${drops(x + 14, y + 104, 1, .6)}` : ''}</g>`; }).join('');
-    o += s.run ? verdict(60, 290, 450, false, 'Vẫn có mẹ băng huyết dù không có yếu tố nào') : T(285, 312, '👆 bấm nút ở trên', { s: 14, c: C.soft });
+    let o = card(20, 20, 530, 316, '#fffdfa');
+    o += T(285, 46, '20 sản phụ sau sinh — đều không có yếu tố nguy cơ trước sinh', { s: 13.5 });
+    o += [...Array(20)].map((_, i) => {
+      const x = 36 + (i % 10) * 50, y = 64 + Math.floor(i / 10) * 102, hit = s.run && (i === 6 || i === 13);
+      return `<g ${hit ? 'class="fadein"' : ''}>${pic('sv-phu-nu.png', x, y, 28, 88)}${hit ? `<circle cx="${x + 14}" cy="${y + 50}" r="24" fill="none" stroke="${C.red}" stroke-width="3" class="pulse"/><ellipse cx="${x + 14}" cy="${y + 50}" rx="16" ry="12" fill="url(#gMyo)" opacity=".8"/>${drops(x + 14, y + 92, 2, .7)}` : ''}</g>`;
+    }).join('');
+    if (s.run) {
+      o += `<g class="fadein"><rect x="36" y="270" width="488" height="52" rx="14" fill="#ffd8e0" stroke="${C.redD}" stroke-width="1.4"/>${T(280, 292, '🚨 Phát hiện 2 mẹ đờ tử cung âm thầm lúc 45 phút!', { s: 13.5, c: C.redD })}${T(280, 312, '→ Dùng oxytocin dự phòng & theo dõi sát 2 giờ đầu cho MỌI ca', { s: 12, c: C.ink })}</g>`;
+    } else {
+      o += T(285, 298, '👆 Bấm nút công tắc phía trên để bắt đầu theo dõi', { s: 13.5, c: C.soft });
+    }
     return o;
   },
-  say: s => s.run ? ['worry', 'BHSS vẫn xảy ra ở người **không có yếu tố báo trước** → **theo dõi MỌI sản phụ** sau sinh, ca nào cũng dùng thuốc co hồi dự phòng.'] : ['happy', 'Phiếu nguy cơ trống thì có cần theo dõi không? Bấm **▶** xem 👆']
+  say: s => s.run ? ['worry', 'BHSS vẫn xảy ra ở người **không có yếu tố báo trước** → **theo dõi MỌI sản phụ** sau sinh, ca nào cũng dùng thuốc co hồi dự phòng.'] : ['happy', 'Phiếu nguy cơ trống thì có cần theo dõi không? Bật **▶ Theo dõi** xem 👆']
 });
 B['du-phong-truoc-sinh'] = [
   { t: 'Tử cung căng quá, co kém', kit: 'bd-cang' },
@@ -89,12 +141,54 @@ kit('bg3-bong', {
   },
   say: s => s.t >= 8 ? ['wow', 'Sau sổ thai, tử cung **co rút** → diện giường nhau **nhỏ lại** → nhau (không co được) **bị bong** ra và tụt xuống. Co tốt = vừa bong nhau vừa cầm máu.'] : ['happy', 'Kéo thanh **⏱ Phút sau sổ thai** — nhìn tử cung và bánh nhau 👆']
 });
-const AM = [['thuoc', '💉', 'Thuốc co hồi dự phòng', '⭐ quan trọng nhất'], ['keo', '🤲', 'Kéo dây rốn có kiểm soát', 'người được đào tạo, khi phù hợp'], ['kt', '🔍', 'Kiểm tra nhau + tử cung + máu mất', 'đủ múi, đủ màng, co tốt']];
+const AM = [
+  ['thuoc', '💉', 'Thuốc co hồi', 'Oxytocin 10 IU tiêm bắp trong 1 phút sau sinh', '⭐ Can thiệp quan trọng nhất'],
+  ['keo', '🤲', 'Kéo rốn có đối lực', 'Kéo nhẹ theo trục + tay đẩy đáy tử cung lên', 'Phòng lộn tử cung, chỉ khi phù hợp'],
+  ['kt', '🔍', 'Kiểm tra nhau & TC', 'Đủ múi, đủ màng, đáy tử cung chắc an toàn', 'Phát hiện sót nhau & đờ tử cung sớm']
+];
 kit('bg3-ba', {
-  init: () => ({ seen: '' }), ui: () => [], after: (s, k) => markSeen(s, k), goal: s => AM.every(([k]) => seen(s, k)),
-  draw: s => T(285, 44, 'Xử trí giai đoạn III: chạm từng việc', { s: 15 }) + AM.map(([k, ic, a, b], i) => { const x = 20 + i * 178, sn = seen(s, k);
-    return `<g class="tap" data-set="!${k}">${card(x, 60, 170, 270, sn ? (i === 0 ? C.butter : C.mint) : '#fff', sn ? C.soft : C.grid)}${i === 0 ? pic('sv-bom-tiem.png', x + 10, 92, 150, 48) : T(x + 85, 132, ic, { s: 46 })}${ZS.wrap(a, 16).map((l, j) => T(x + 85, 190 + j * 19, l, { s: 14.5 })).join('')}${sn ? `<g class="fadein">${ZS.wrap(b, 18).map((l, j) => T(x + 85, 262 + j * 18, l, { s: 12.5, c: i === 0 ? '#b8860b' : C.mute })).join('')}</g>` : T(x + 85, 280, '👆', { s: 16, c: C.soft })}</g>`; }).join(''),
-  say: s => AM.every(([k]) => seen(s, k)) ? ['happy', 'Ba việc: **thuốc co hồi** (quan trọng nhất), **kéo dây rốn có kiểm soát** khi phù hợp, **kiểm tra nhau + tử cung + máu mất**.'] : ['happy', 'Giai đoạn III gồm **3 việc**. Chạm từng thẻ 👆']
+  init: () => ({ cur: 'thuoc', seen: 'thuoc,' }), ui: () => [],
+  after: (s, k) => { if (k === 'cur') markSeen(s, s.cur); },
+  goal: s => AM.every(([k]) => seen(s, k)),
+  draw: s => {
+    const cur = s.cur || 'thuoc';
+    let o = card(20, 20, 335, 316, '#fffdfa');
+    if (cur === 'thuoc') {
+      o += T(187, 44, 'Thao tác 1: Tiêm bắp Oxytocin dự phòng', { s: 13.5 });
+      o += `<path d="M70 70 C120 70 260 90 280 180 C290 225 240 270 170 270 C100 270 60 210 70 70Z" fill="#ffd8e0" stroke="${C.myoD}" stroke-width="1.8"/>` + Th(175, 140, 'cơ tứ đầu đùi', { s: 12, c: C.myoD });
+      o += `<g transform="translate(145 50)">${pic('sv-bom-tiem.png', -20, 0, 110, 40, 'transform="rotate(90 35 20)"')}</g>`;
+      o += arrow('M180 100 V130', C.redD, 3.5) + Th(180, 175, '10 IU IM', { s: 18, c: C.redD }) + T(180, 198, 'trong vòng 1 phút sau sinh', { s: 12.5, c: C.ink });
+      o += `<g transform="translate(90 220) scale(.45)">${ZS.uterusSag({ x: 170, y: 70, k: .6 })}</g>` + Th(230, 255, 'tử cung gò siết chặt', { s: 12, c: C.green });
+    } else if (cur === 'keo') {
+      o += T(187, 44, 'Thao tác 2: Kéo dây rốn có kiểm soát (CCT)', { s: 13.5 });
+      o += ZS.uterusSag({ x: 180, y: 45, k: .65 });
+      o += `<ellipse cx="180" cy="180" rx="40" ry="18" fill="url(#gPlac)" stroke="${C.placD}"/>`;
+      o += `<path d="M180 195 C190 230 220 260 240 285" fill="none" stroke="#9b8fe0" stroke-width="6"/>`;
+      o += arrow('M220 250 L250 290', C.redD, 4.5) + Th(250, 310, 'kéo nhẹ theo trục chậu', { a: 'middle', s: 11.5, c: C.redD });
+      o += `<g transform="translate(195 145) scale(.7)">${pic('sv-ban-tay.png', -20, -30, 48, 80, 'transform="rotate(-50 4 10)"')}</g>`;
+      o += arrow('M195 140 L165 95', C.green, 4.5) + Th(130, 105, 'đối lực đẩy đáy lên', { a: 'end', s: 12, c: C.green });
+      o += `<rect x="60" y="278" width="130" height="26" rx="8" fill="#e8f8f0" stroke="${C.green}"/>` + T(125, 295, '✓ Chống lộn tử cung', { s: 11.5, c: C.green });
+    } else {
+      o += T(187, 44, 'Thao tác 3: Kiểm tra bánh nhau & đáy tử cung', { s: 13.5 });
+      o += `<circle cx="130" cy="160" r="62" fill="#c94a5a" stroke="${C.placD}" stroke-width="2.5"/>`;
+      o += [0, 1, 2, 3, 4, 5, 6].map(i => {
+        const a = i * Math.PI * 2 / 7, rx = 130 + Math.cos(a) * 35, ry = 160 + Math.sin(a) * 35;
+        return `<circle cx="${rx}" cy="${ry}" r="16" fill="#b23a4c" stroke="#8e2638" stroke-width="1.2"/>`;
+      }).join('');
+      o += Th(130, 240, 'đủ múi, đủ màng, 3 mạch rốn', { s: 11.5, c: C.placD });
+      o += `<g transform="translate(245 105) scale(.6)">${ZS.uterusSag({ x: 80, y: 50, k: .55 })}</g>`;
+      o += `<g transform="translate(285 105)">${pic('sv-ban-tay.png', -20, -30, 44, 76, 'transform="rotate(180)"')}</g>`;
+      o += Th(285, 210, 'đáy tử cung chắc', { s: 13, c: C.green }) + T(285, 230, 'khối cầu an toàn', { s: 12, c: C.mute });
+    }
+    o += card(365, 20, 175, 316);
+    o += T(452, 44, '3 can thiệp thiết yếu', { s: 13.5 });
+    o += AM.map(([k, ic, a, b], i) => {
+      const y = 58 + i * 86, on = cur === k, sn = seen(s, k);
+      return `<g class="tap" data-set="cur=${k}">${card(375, y, 155, 78, on ? C.lav : sn ? '#f4fff8' : '#fff', on ? C.soft : sn ? C.mintD : C.grid, on ? 1.8 : 1)}${T(390, y + 24, ic, { s: 20 })}${T(410, y + 22, a, { a: 'start', s: 12, c: on ? C.ink : C.mute })}${sn ? T(516, y + 20, '✓', { s: 13, c: C.green }) : ''}${ZS.wrap(b, 17).map((l, j) => T(386, y + 44 + j * 15, l, { a: 'start', s: 10.5, c: on ? C.ink : C.mute })).join('')}</g>`;
+    }).join('');
+    return o;
+  },
+  say: s => AM.every(([k]) => seen(s, k)) ? ['happy', 'Ba việc: **thuốc co hồi** (quan trọng nhất), **kéo dây rốn có kiểm soát** khi phù hợp, **kiểm tra nhau + tử cung + máu mất**.'] : ['happy', 'Giai đoạn III gồm **3 việc**. Chạm từng thẻ để xem thao tác 👆']
 });
 kit('bg3-xoa', {
   init: () => ({ tc: '', seen: '' }), ui: () => [{ t: 'seg', k: 'tc', opts: [['chac', '🟢 Tử cung chắc, máu ít'], ['do', '🔴 Tử cung mềm, đang chảy']] }], after: s => markSeen(s, s.tc), goal: s => seen(s, 'chac') && seen(s, 'do'),
@@ -141,12 +235,7 @@ kit('bo-lieu', {
   },
   say: s => seen(s, 'ivn') && (seen(s, 'ivc') || seen(s, 'im')) ? ['worry', 'Dự phòng: **oxytocin 10 IU** tiêm bắp hoặc **IV chậm 1–2 phút** (pha loãng). **Tránh bolus nhanh** — bất lợi huyết động.'] : ['happy', 'Cùng 10 IU, ba cách tiêm. Thử **cả cách nhanh** và một cách chậm 👆']
 });
-const OXQ = [['Dự phòng = cùng liều, tốc độ như tăng co chuyển dạ', false], ['Đổi số ống khi hàm lượng mỗi ống khác', false], ['IU (oxytocin) khác µg (carbetocin)', true], ['WHO 2025: bỏ ergometrine dự phòng thường quy', true]];
-kit('bo-bay', {
-  init: () => ({ seen: '' }), ui: () => [], after: (s, k) => markSeen(s, k), goal: s => OXQ.every((_, i) => seen(s, 'q' + i)),
-  draw: s => T(285, 40, 'Đúng hay sai? Chạm từng thẻ', { s: 15 }) + tf(OXQ, s, 2, 261, 128, 56),
-  say: s => OXQ.every((_, i) => seen(s, 'q' + i)) ? ['worry', 'Liều dự phòng **không phải** phác đồ tăng co. Đọc **đúng hàm lượng**, không nhầm **IU với µg**. WHO 2025 không còn ergometrine dự phòng thường quy.'] : ['happy', 'Bốn câu hay nhầm. Chạm từng thẻ để lật 👆']
-});
+ZS.BK.tfKit('bo-bay', [['Dự phòng = cùng liều, tốc độ như tăng co chuyển dạ', false, 'Liều dự phòng khác liều tăng co chuyển dạ; không dùng chung phác đồ.'], ['Đổi số ống khi hàm lượng mỗi ống khác', false, 'Không quy theo số ống: luôn đọc hàm lượng trên nhãn rồi mới tính liều.'], ['IU (oxytocin) khác µg (carbetocin)', true, 'Oxytocin tính bằng IU, carbetocin bằng µg: nhầm đơn vị là sai liều.'], ['WHO 2025: bỏ ergometrine dự phòng thường quy', true, 'WHO 2025 không còn khuyến cáo ergometrine dự phòng thường quy.']], 'Liều dự phòng **không phải** phác đồ tăng co. Đọc **đúng hàm lượng**, không nhầm **IU với µg**. WHO 2025 không còn ergometrine dự phòng thường quy.');
 B['oxytocin-du-phong'] = [
   { t: 'Oxytocin làm cơ co thế nào', kit: 'bo-cell' },
   { t: '10 IU: tiêm sao cho an toàn', kit: 'bo-lieu', cr: 'Bơm tiêm: ' + SV },
@@ -169,28 +258,53 @@ kit('bq-lanh', {
   say: s => s.tdo >= 32 ? ['ouch', 'Thuốc **đúng tên** nhưng bảo quản sai → **mất hoạt tính**, dự phòng thất bại. Chất lượng & chuỗi lạnh là **một phần của kế hoạch**.'] : ['happy', 'Oxytocin cần cất lạnh. Kéo thanh **🌡 Nơi cất thuốc** lên nóng dần 👆']
 });
 kit('bq-chon', {
-  init: () => ({ lanh: true, cn: true, seen: 'oxy,' }), ui: () => [{ t: 'tog', k: 'lanh', label: '❄️ Oxytocin bảo đảm chất lượng' }, { t: 'tog', k: 'cn', label: '🔥 Có carbetocin CHỊU NHIỆT' }], after: s => markSeen(s, s.lanh ? 'oxy' : s.cn ? 'car' : 'mis'), goal: s => ['oxy', 'car', 'mis'].every(k => seen(s, k)),
+  init: () => ({ lanh: true, cn: true, seen: 'oxy,' }),
+  ui: () => [{ t: 'tog', k: 'lanh', label: '❄️ Oxytocin bảo đảm chuỗi lạnh 2–8°C' }, { t: 'tog', k: 'cn', label: '🔥 Có carbetocin CHỊU NHIỆT' }],
+  after: s => markSeen(s, s.lanh ? 'oxy' : s.cn ? 'car' : 'mis'),
+  goal: s => ['oxy', 'car', 'mis'].every(k => seen(s, k)),
   draw: s => {
-    const pick = s.lanh ? 'oxy' : s.cn ? 'car' : 'mis', on = (k) => pick === k;
-    const box = (x, y, w, h, l, c, k) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="14" fill="${on(k) ? c : '#fff'}" stroke="${on(k) ? C.soft : C.grid}" stroke-width="${on(k) ? 1.8 : 1}"/>` + l.map((t, j) => T(x + w / 2, y + 26 + j * 19, t, { s: j ? 13 : 15, c: j ? C.mute : C.ink })).join('');
-    let o = card(20, 20, 530, 316, '#fffdfa');
-    o += `<rect x="40" y="40" width="220" height="56" rx="14" fill="#f4f0fb"/>` + T(150, 64, 'Oxytocin bảo đảm', { s: 14 }) + T(150, 84, 'chất lượng?', { s: 14 });
-    o += arrow('M260 68 H312', s.lanh ? C.green : C.grid, 3) + T(286, 60, 'có', { s: 12, c: C.green }) + box(318, 36, 214, 64, ['Oxytocin', '10 IU IM / IV'], C.mint, 'oxy');
-    o += arrow('M150 98 V134', !s.lanh ? C.red : C.grid, 3) + T(166, 120, 'không', { a: 'start', s: 12, c: C.redD });
-    o += `<rect x="40" y="138" width="220" height="56" rx="14" fill="#f4f0fb" opacity="${s.lanh ? .4 : 1}"/>` + T(150, 162, 'Có carbetocin', { s: 14 }) + T(150, 182, 'CHỊU NHIỆT?', { s: 14 });
-    o += arrow('M260 166 H312', !s.lanh && s.cn ? C.green : C.grid, 3) + box(318, 134, 214, 64, ['Carbetocin', '100 µg IM / IV'], C.mint, 'car');
-    o += arrow('M150 196 V232', !s.lanh && !s.cn ? C.red : C.grid, 3) + box(40, 236, 492, 64, ['Misoprostol', '400–600 µg uống'], C.butter, 'mis');
-    o += T(285, 326, 'chọn MỘT thuốc dự phòng — không cộng dồn', { s: 12.5, c: C.mute });
+    const pick = s.lanh ? 'oxy' : s.cn ? 'car' : 'mis';
+    let o = card(20, 20, 335, 316, '#fffdfa');
+    if (pick === 'oxy') {
+      o += `<rect x="36" y="34" width="302" height="236" rx="16" fill="#f0f7ff" stroke="${C.skyD}" stroke-width="1.6"/>`;
+      o += T(187, 58, '❄️ TỦ LẠNH Y TẾ BẢO ĐẢM 2–8°C', { s: 13, c: '#2b6cb0' });
+      o += [0, 1, 2].map(i => vial(110 + i * 50, 84, C.cap, 1)).join('') + T(187, 168, 'Oxytocin 10 IU nguyên vẹn', { s: 12.5, c: C.mute });
+      o += `<g transform="translate(130 185)">${pic('sv-bom-tiem.png', 0, 0, 115, 38)}</g>`;
+      o += Th(187, 240, 'Oxytocin 10 IU IM / IV chậm', { s: 15, c: C.green });
+      o += `<rect x="60" y="278" width="255" height="30" rx="10" fill="#e8f8f0" stroke="${C.green}"/>` + T(187, 298, '✓ LỰA CHỌN SỐ 1 KHI CÓ CHUỖI LẠNH', { s: 12, c: C.green });
+    } else if (pick === 'car') {
+      o += `<rect x="36" y="34" width="302" height="236" rx="16" fill="#fff5ec" stroke="#e07a38" stroke-width="1.6"/>`;
+      o += T(187, 58, '☀️ NHIỆT ĐỘ PHÒNG NÓNG (30–35°C)', { s: 13, c: '#c0561a' });
+      o += `<rect x="75" y="80" width="80" height="74" rx="10" fill="#ffe2d4" stroke="#e07a38" stroke-width="1.2"/>` + T(115, 108, '🌡️ >30°C', { s: 14, c: C.redD }) + T(115, 134, 'oxy hỏng!', { s: 11, c: C.redD });
+      o += `<rect x="175" y="80" width="145" height="74" rx="10" fill="#eafaf1" stroke="${C.green}" stroke-width="1.4"/>` + T(247, 106, '🛡️ Chịu nhiệt', { s: 14, c: C.green }) + T(247, 132, 'Carbetocin 100 µg', { s: 12, c: C.green });
+      o += `<g transform="translate(130 170)">${pic('sv-bom-tiem.png', 0, 0, 115, 38)}</g>`;
+      o += Th(187, 235, 'Carbetocin 100 µg IM / IV', { s: 15, c: C.green });
+      o += `<rect x="46" y="278" width="282" height="30" rx="10" fill="#e8f8f0" stroke="${C.green}"/>` + T(187, 298, '✓ LỰA CHỌN THAY THẾ SỐ 1 KHI MẤT LẠNH', { s: 11.5, c: C.green });
+    } else {
+      o += `<rect x="36" y="34" width="302" height="236" rx="16" fill="#fffbe6" stroke="#d4a318" stroke-width="1.6"/>`;
+      o += T(187, 58, '🎒 TRẠM Y TẾ XA · KHÔNG THUỐC TIÊM', { s: 12.5, c: '#b8860b' });
+      o += `<rect x="90" y="82" width="195" height="76" rx="12" fill="#fff" stroke="#d4a318"/>` + T(187, 106, 'Vỉ Misoprostol', { s: 13, c: '#b8860b' });
+      o += [0, 1, 2].map(i => `<circle cx="${147 + i * 40}" cy="136" r="12" fill="#fff" stroke="#d4a318" stroke-width="1.6"/><circle cx="${147 + i * 40}" cy="136" r="8" fill="#ffe380"/>` + T(147 + i * 40, 140, '200', { s: 9, c: '#805d00' })).join('');
+      o += Th(187, 200, '3 viên = 400–600 µg', { s: 16, c: '#b8860b' }) + T(187, 226, 'đường uống hoặc ngậm', { s: 12.5, c: C.ink });
+      o += `<rect x="46" y="278" width="282" height="30" rx="10" fill="#fff9db" stroke="#d4a318"/>` + T(187, 298, '✓ LỰA CHỌN KHI KHÔNG CÓ THUỐC TIÊM', { s: 11.5, c: '#805d00' });
+    }
+    o += card(365, 20, 175, 316);
+    o += T(452, 44, 'Bậc chọn thuốc', { s: 14 });
+    const STEPS = [
+      ['oxy', '1. Oxytocin', '10 IU IM/IV', C.mint, s.lanh],
+      ['car', '2. Carbetocin', 'chịu nhiệt 100 µg', C.mint, !s.lanh && s.cn],
+      ['mis', '3. Misoprostol', '400–600 µg uống', C.butter, !s.lanh && !s.cn]
+    ];
+    o += STEPS.map(([k, t, d, c, act], i) => {
+      const y = 62 + i * 72;
+      return `<rect x="375" y="${y}" width="155" height="60" rx="12" fill="${act ? c : '#fff'}" stroke="${act ? C.soft : C.grid}" stroke-width="${act ? 1.8 : 1}"/>${T(452, y + 24, t, { s: 13, c: act ? C.ink : C.mute })}${T(452, y + 46, d, { s: 11.5, c: act ? (c === C.butter ? '#805d00' : C.green) : C.mute })}`;
+    }).join('');
+    o += T(452, 296, 'chọn MỘT thuốc duy nhất', { s: 11.5, c: C.mute });
     return o;
   },
-  say: s => ['oxy', 'car', 'mis'].every(k => seen(s, k)) ? ['happy', 'WHO 2025: **oxytocin** khi bảo đảm chất lượng; không có chuỗi lạnh → **carbetocin chịu nhiệt**; không có → **misoprostol**. Chọn **một** thuốc.'] : ['happy', 'Tắt bật hai công tắc — đi hết **cả 3 nhánh** của sơ đồ 👆']
+  say: s => ['oxy', 'car', 'mis'].every(k => seen(s, k)) ? ['happy', 'WHO 2025: **oxytocin** khi bảo đảm chất lượng; không có chuỗi lạnh → **carbetocin chịu nhiệt**; không có → **misoprostol**. Chọn **một** thuốc.'] : ['happy', 'Tắt bật hai công tắc — khám phá **cả 3 hoàn cảnh** chọn thuốc 👆']
 });
-const BQ = [['Mọi carbetocin đều chịu nhiệt', false], ['Carbetocin tác dụng dài → lặp lại cho mọi BHSS', false], ['Thuốc co hồi sửa được rách hay sót nhau', false], ['Liều misoprostol dự phòng khác liều điều trị', true], ['Kiểm hạn, nhãn, hàm lượng mỗi ống', true], ['Đã dùng misoprostol thì không tự thêm nhiều đường', true]];
-kit('bq-bay', {
-  init: () => ({ seen: '' }), ui: () => [], after: (s, k) => markSeen(s, k), goal: s => BQ.every((_, i) => seen(s, 'q' + i)),
-  draw: s => T(285, 40, 'Đúng hay sai? Chạm từng thẻ', { s: 15 }) + tf(BQ, s, 3, 170, 130, 56),
-  say: s => BQ.every((_, i) => seen(s, 'q' + i)) ? ['worry', 'Không phải carbetocin nào cũng chịu nhiệt; tác dụng dài **không sửa** Trauma/Tissue. Đừng trộn **liều dự phòng, liều điều trị** và hàm lượng.'] : ['happy', 'Sáu câu về thuốc co hồi. Chạm từng thẻ 👆']
-});
+ZS.BK.tfKit('bq-bay', [['Mọi carbetocin đều chịu nhiệt', false, 'Chỉ dạng carbetocin chịu nhiệt chuyên biệt mới chịu nhiệt.'], ['Carbetocin tác dụng dài → lặp lại cho mọi BHSS', false, 'Tác dụng dài không có nghĩa lặp lại tùy tiện; làm theo chỉ định.'], ['Thuốc co hồi sửa được rách hay sót nhau', false, 'Thuốc co hồi chỉ trị Tone; rách (Trauma) cần khâu, sót nhau (Tissue) cần lấy.'], ['Liều misoprostol dự phòng khác liều điều trị', true, 'Dự phòng và điều trị có liều khác nhau: đừng trộn.'], ['Kiểm hạn, nhãn, hàm lượng mỗi ống', true, 'Thuốc hết hạn hay nhầm hàm lượng gây hỏng hoặc quá liều.'], ['Đã dùng misoprostol thì không tự thêm nhiều đường', true, 'Đừng tự cộng dồn nhiều đường dùng hay liều ngoài phác đồ.']], 'Không phải carbetocin nào cũng chịu nhiệt; tác dụng dài **không sửa** Trauma/Tissue. Đừng trộn **liều dự phòng, liều điều trị** và hàm lượng.');
 B['bao-quan-thuoc-go'] = [
   { t: 'Đúng tên vẫn hỏng vì nóng', kit: 'bq-lanh' },
   { t: 'Chọn một thuốc theo hoàn cảnh', kit: 'bq-chon' },
@@ -199,11 +313,13 @@ B['bao-quan-thuoc-go'] = [
 
 // ═════════ Kẹp rốn muộn
 const cordScene = (min, cut, ngat) => { const f = Math.min(1, min / 3);
+  const CD = 'M144 180 C190 150 232 232 312 201';
   let s = `<ellipse cx="90" cy="180" rx="56" ry="22" fill="url(#gPlac)" stroke="${C.placD}"/>` + T(90, 220, 'bánh nhau', { s: 12.5, c: C.mute });
-  s += `<path d="M144 180 C190 150 220 230 262 196" fill="none" stroke="#c9c3f0" stroke-width="12" stroke-linecap="round"/><path d="M144 180 C190 150 220 230 262 196" fill="none" stroke="#9b8fe0" stroke-width="3"/>`;
-  if (!cut) s += flow('M144 180 C190 150 220 230 262 196', Math.round(2 + 5 * (1 - f)), '#e5484d', 1.6, 3.2);
-  else s += `<rect x="196" y="176" width="10" height="28" rx="3" fill="${C.ink}"/>`;
-  s += pic('sv-be.png', 262, 70, 120, 256) + (ngat ? `<rect x="262" y="70" width="120" height="256" fill="#8fa8ff" opacity=".35" rx="12"/>` : '');
+  s += ZS.BK.tintPic('sv-be.png', 262, 70, 120, 256, ngat ? .9 : 0, 'tim');
+  s += `<path d="${CD}" fill="none" stroke="#c9c3f0" stroke-width="12" stroke-linecap="round"/><path d="${CD}" fill="none" stroke="#9b8fe0" stroke-width="3"/><circle cx="312" cy="201" r="5" fill="#9b8fe0" stroke="#fff" stroke-width="1.4"/>`;
+  if (!cut) s += flow(CD, Math.round(2 + 5 * (1 - f)), '#e5484d', 1.6, 3.2);
+  else s += `<rect x="209" y="176" width="10" height="28" rx="3" fill="${C.ink}" transform="rotate(26 214 190)"/>`;
+  s += Th(312, 232, 'rốn', { s: 11.5, c: C.mute });
   return s; };
 kit('bk-muon', {
   init: () => ({ m: 0, cut: false }), ui: () => [{ t: 'range', k: 'm', label: '⏱ Chờ trước khi kẹp', min: 0, max: 3, step: .5, unit: ' phút' }, { t: 'tog', k: 'cut', label: '✂️ Kẹp rốn' }], goal: s => s.cut && s.m >= 1,
@@ -226,13 +342,31 @@ kit('bk-ngat', {
   say: s => s.ngat ? ['worry', 'Trẻ **ngạt cần hồi sức** → kẹp và chuyển **ngay**. Kẹp muộn **không cấm** hồi sức trẻ hay can thiệp khi mẹ nguy kịch.'] : ['happy', 'Nếu bé không khóc, tím, mềm thì sao? Bật **😶 Bé ngạt** 👆']
 });
 kit('bk-khac', {
-  init: () => ({ sel: '', seen: '' }), ui: () => [], after: (s, k) => { if (k === 'sel') markSeen(s, s.sel); }, goal: s => seen(s, 'kep') && seen(s, 'keo'),
+  init: () => ({ sel: 'kep', seen: 'kep,' }), ui: () => [],
+  after: (s, k) => { if (k === 'sel') markSeen(s, s.sel); },
+  goal: s => seen(s, 'kep') && seen(s, 'keo'),
   draw: s => {
-    const D = { kep: ['✂️ KẸP rốn', 'cắt liên thông bé – nhau', 'thời điểm: muộn 1–3 phút'], keo: ['🤲 KÉO dây rốn có kiểm soát', 'giúp sổ NHAU', 'tay kia đối lực trên vệ'] };
-    return Object.entries(D).map(([k, [a, b, c]], i) => { const x = 20 + i * 268, on = s.sel === k, sn = seen(s, k);
-      return `<g class="tap" data-set="sel=${k}">${card(x, 20, 262, 316, on ? C.lav : '#fff', on ? C.soft : sn ? C.mintD : C.grid)}<g transform="translate(${x + 10} 30) scale(.62)">${cordScene(2, k === 'kep', false)}</g>${k === 'keo' ? arrow(`M${x + 70} 140 L${x + 30} 176`, C.red, 4) : ''}${T(x + 131, 250, a, { s: 15 })}${sn ? `<g class="fadein">${T(x + 131, 276, b, { s: 13.5, c: C.redD })}${T(x + 131, 298, c, { s: 12.5, c: C.mute })}</g>` : T(x + 131, 286, '👆 chạm', { s: 13, c: C.soft })}</g>`; }).join('');
+    const isKep = s.sel !== 'keo';
+    let o = `<g class="tap" data-set="sel=kep">${card(20, 20, 255, 316, isKep ? C.lav : '#fff', isKep ? C.soft : seen(s, 'kep') ? C.mintD : C.grid, isKep ? 2 : 1)}`;
+    o += T(147, 46, '✂️ KẸP RỐN MUỘN', { s: 15, c: isKep ? C.ink : C.mute });
+    o += `<g transform="translate(18 20) scale(.6)">${cordScene(2, isKep, false)}</g>`;
+    o += `<rect x="36" y="210" width="223" height="110" rx="12" fill="${isKep ? '#fff' : '#f8f6fc'}"/>`;
+    o += T(147, 230, 'Đối tượng: BÉ SƠ SINH', { s: 12.5, c: C.cap });
+    o += T(147, 252, 'Chờ 1–3 phút sau sinh', { s: 12, c: C.ink });
+    o += ZS.wrap('Máu bánh nhau truyền thêm 80–100 mL sang bé → ngừa thiếu máu sơ sinh', 26).map((l, j) => T(147, 274 + j * 16, l, { s: 11, c: C.mute })).join('');
+    o += `</g>`;
+
+    o += `<g class="tap" data-set="sel=keo">${card(285, 20, 255, 316, !isKep ? C.lav : '#fff', !isKep ? C.soft : seen(s, 'keo') ? C.mintD : C.grid, !isKep ? 2 : 1)}`;
+    o += T(412, 46, '🤲 KÉO DÂY RỐN CÓ ĐỐI LỰC', { s: 14, c: !isKep ? C.ink : C.mute });
+    o += `<g transform="translate(290 40) scale(.52)">${ZS.uterusSag({ x: 180, y: 45, k: .65 })}<ellipse cx="180" cy="180" rx="40" ry="18" fill="url(#gPlac)" stroke="${C.placD}"/><path d="M180 195 C190 230 220 260 240 285" fill="none" stroke="#9b8fe0" stroke-width="6"/>${arrow('M220 250 L250 290', C.redD, 4.5)}<g transform="translate(195 145) scale(.7)">${pic('sv-ban-tay.png', -20, -30, 48, 80, 'transform="rotate(-50 4 10)"')}</g>${arrow('M195 140 L165 95', C.green, 4.5)}</g>`;
+    o += `<rect x="301" y="210" width="223" height="110" rx="12" fill="${!isKep ? '#fff' : '#f8f6fc'}"/>`;
+    o += T(412, 230, 'Đối tượng: SẢN PHỤ', { s: 12.5, c: C.redD });
+    o += T(412, 252, 'Bé đã cắt rốn ra ngoài', { s: 12, c: C.ink });
+    o += ZS.wrap('Kéo nhẹ dây rốn + tay đối lực trên bờ mu giúp sổ nhau và phòng lộn tử cung', 26).map((l, j) => T(412, 274 + j * 16, l, { s: 11, c: C.mute })).join('');
+    o += `</g>`;
+    return o;
   },
-  say: s => seen(s, 'kep') && seen(s, 'keo') ? ['happy', '**Kẹp rốn** cắt liên thông bé–nhau; **kéo dây rốn có kiểm soát** giúp sổ nhau. Hai thao tác khác nhau, đừng nhầm.'] : ['happy', 'Hai việc cùng làm trên dây rốn. Chạm **cả hai thẻ** 👆']
+  say: s => seen(s, 'kep') && seen(s, 'keo') ? ['happy', '**Kẹp rốn** cắt liên thông bé–nhau; **kéo dây rốn có kiểm soát** giúp sổ nhau. Hai thao tác khác nhau, đừng nhầm.'] : ['happy', 'Hai việc cùng làm trên dây rốn. Chạm **cả hai thẻ** để phân biệt 👆']
 });
 B['kep-ron-muon'] = [
   { t: 'Kẹp rốn muộn 1–3 phút', kit: 'bk-muon', cr: 'Em bé: ' + SV },
@@ -246,13 +380,25 @@ kit('bc-keo', {
   draw: s => {
     const inv = !s.dl && s.luc >= 60, ok = s.dl && s.luc >= 30 && s.luc <= 60, tooHard = s.dl && s.luc > 60;
     let o = card(20, 20, 340, 316, '#fffdfa');
-    o += `<g transform="translate(0 ${inv ? 40 : 0})">${ZS.uterusSag({ x: 170, y: 40, k: .6 })}${inv ? `<path d="M128 46 Q170 ${80} 212 46" fill="#fff" stroke="${C.red}" stroke-width="3"/>` : ''}</g>`;
-    const py = ok ? 260 : inv ? 230 : 160;
-    o += `<ellipse cx="170" cy="${py}" rx="30" ry="15" fill="url(#gPlac)" stroke="${C.placD}">${ZS.tw('cy', s._p ? (s._p.dl && s._p.luc >= 30 && s._p.luc <= 60 ? 260 : !s._p.dl && s._p.luc >= 60 ? 230 : 160) : null, py, .7)}</ellipse>`;
-    o += `<path d="M170 ${py + 12} C170 270 200 300 ${200 + s.luc * .9} 316" fill="none" stroke="#9b8fe0" stroke-width="5"/>` + (s.luc ? arrow(`M${210 + s.luc * .9} 318 l26 6`, s.luc > 60 ? C.red : C.green, 4) : '');
-    if (s.dl) o += `<g class="fadein">${pic('sv-ban-tay.png', 214, 20, 48, 84, 'transform="rotate(200 238 62)"')}${arrow('M232 104 l-14 -26', C.green, 4)}</g>` + Th(290, 60, 'đối lực', { s: 12.5, c: C.green });
-    if (inv) o += ZS.fade(Th(170, 70, '⚠ đáy tử cung bị kéo lộn', { s: 14, c: C.redD }), true);
-    o += card(372, 20, 178, 316) + (ok ? verdict(388, 120, 146, true, 'nhau xuống', 'nhẹ + đối lực') : inv ? verdict(388, 120, 146, false, 'LỘN TỬ CUNG', 'không đối lực, kéo mạnh') : tooHard ? verdict(388, 120, 146, false, 'quá mạnh', 'dừng, đánh giá lại') : T(461, 150, 'bật đối lực,', { s: 13, c: C.soft }) + T(461, 170, 'kéo vừa phải', { s: 13, c: C.soft }));
+    o += `<g transform="translate(0 ${inv ? 32 : 0})">${ZS.uterusSag({ x: 170, y: 40, k: .6 })}`;
+    if (inv) {
+      o += `<path d="M120 46 Q170 106 220 46" fill="#fff" stroke="${C.redD}" stroke-width="3"/>`;
+      o += `<path d="M128 48 Q170 98 212 48" fill="url(#gMyo)" stroke="${C.redD}" stroke-width="2"/>`;
+      o += arrow('M170 42 V88', C.redD, 4);
+    }
+    o += `</g>`;
+    const py = ok ? 258 : inv ? 215 : 160;
+    o += `<ellipse cx="170" cy="${py}" rx="32" ry="16" fill="url(#gPlac)" stroke="${C.placD}">${ZS.tw('cy', s._p ? (s._p.dl && s._p.luc >= 30 && s._p.luc <= 60 ? 258 : !s._p.dl && s._p.luc >= 60 ? 215 : 160) : null, py, .7)}</ellipse>`;
+    o += `<path d="M170 ${py + 12} C170 268 200 295 ${200 + s.luc * .9} 314" fill="none" stroke="${inv ? C.red : '#9b8fe0'}" stroke-width="${inv ? 6 : 5}"/>`;
+    if (s.luc) o += arrow(`M${210 + s.luc * .9} 316 l26 6`, s.luc > 60 ? C.red : C.green, 4);
+    if (s.dl) {
+      o += `<g class="fadein">${pic('sv-ban-tay.png', 198, 166, 48, 82, 'transform="rotate(-52 222 207)"')}${arrow('M214 166 l-16 -24', C.green, 4.5)}</g>` + Th(280, 264, 'tay đối lực đẩy đáy lên', { s: 12, c: C.green });
+    }
+    if (inv) {
+      o += ZS.fade(Th(170, 70, '⚠ LỘN TỬ CUNG CẤP TÍNH!', { s: 13, c: C.redD }), true);
+      o += drops(170, 290, 3, .8, 12);
+    }
+    o += card(372, 20, 178, 316) + (ok ? verdict(388, 115, 146, true, 'nhau xuống an toàn', 'lực vừa phải + đối lực vững') : inv ? verdict(388, 115, 146, false, 'LỘN TỬ CUNG', 'không đối lực, kéo mạnh đáy tụt theo') : tooHard ? verdict(388, 115, 146, false, 'lực quá mạnh!', 'dừng lại, đánh giá dấu bong nhau') : T(461, 145, 'bật đối lực xương vệ,', { s: 12.5, c: C.soft }) + T(461, 168, 'kéo vừa phải (30-60%)', { s: 12.5, c: C.soft }));
     return o;
   },
   say: s => s.dl && s.luc >= 30 && s.luc <= 60 ? ['wow', 'Kéo **nhẹ** khi tử cung co + **tay đối lực** trên vệ → nhau xuống. Không xuống thì **dừng, đánh giá lại** — không tăng lực.'] : !s.dl && s.luc >= 60 ? ['ouch', 'Kéo mạnh **không đối lực** → đáy tử cung bị kéo theo: **lộn tử cung**, xuất huyết ồ ạt!'] : ['happy', 'Thử kéo **mạnh không đối lực** trước, rồi bật **✋ Đối lực** và kéo **vừa phải** 👆']
@@ -291,7 +437,9 @@ kit('bm-doan', {
   init: () => ({ g: 200, can: false }), ui: s => [...(s.can ? [] : [{ t: 'range', k: 'g', label: '👀 Bạn đoán', min: 100, max: 1500, step: 50, unit: ' mL' }]), { t: 'tog', k: 'can', label: '⚖️ Cân thật' }], goal: s => s.can,
   draw: s => {
     let o = card(20, 20, 330, 316, '#fffdfa') + T(185, 46, 'Tấm lót + gạc sau sinh', { s: 14, c: C.mute });
-    o += `<rect x="60" y="70" width="250" height="160" rx="10" fill="#f7f1ea" stroke="#e2d6c6"/>` + [[120, 120, 60, 34], [210, 150, 74, 42], [150, 190, 46, 26], [250, 100, 30, 18]].map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#b81e34" opacity=".75"/>`).join('') + `<rect x="80" y="244" width="70" height="44" rx="6" fill="#d23c50" opacity=".8"/><rect x="170" y="250" width="70" height="40" rx="6" fill="#d23c50" opacity=".7"/>` + T(195, 316, 'gạc thấm máu', { s: 12, c: C.mute });
+    o += `<rect x="50" y="70" width="228" height="160" rx="10" fill="#f7f1ea" stroke="#e2d6c6"/>` + [[120, 120, 60, 34], [210, 150, 74, 42], [150, 190, 46, 26], [250, 100, 30, 18]].map(([x, y, rx, ry]) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" fill="#b81e34" opacity=".75"/>`).join('') + `<rect x="80" y="244" width="70" height="44" rx="6" fill="#d23c50" opacity=".8"/><rect x="170" y="250" width="70" height="40" rx="6" fill="#d23c50" opacity=".7"/>` + T(195, 316, 'gạc thấm máu', { s: 12, c: C.mute });
+    const cL = v => 250 - v / 1500 * 180;
+    o += `<rect x="314" y="70" width="28" height="180" rx="10" fill="#fff" stroke="${C.soft}"/>` + [0, 500, 1000, 1500].map(v => `<path d="M314 ${cL(v)} h8" stroke="${C.soft}"/>` + T(311, cL(v) + 4, v, { a: 'end', s: 9.5, c: C.mute })).join('') + (s.can ? `<rect x="316" y="${cL(1150)}" width="24" height="${248 - cL(1150)}" rx="8" fill="${C.red}" opacity=".85"><animate attributeName="y" from="248" to="${cL(1150)}" dur=".8s" fill="freeze"/><animate attributeName="height" from="2" to="${248 - cL(1150)}" dur=".8s" fill="freeze"/></rect>` + Th(328, cL(1150) - 6, 'thật', { s: 11, c: C.redD }) : '') + `<path d="M310 ${cL(s.g)} h36" stroke="${C.amber}" stroke-width="3" stroke-linecap="round"/>` + Th(328, cL(s.g) + 16, 'đoán', { s: 11, c: '#b8860b' });
     o += card(362, 20, 188, 316) + T(456, 60, 'Bạn đoán', { s: 13, c: C.mute }) + T(456, 96, s.g + ' mL', { s: 26 });
     if (s.can) { const real = 1150; o += ZS.fade(pic('sv-can.png', 386, 120, 140, 57) + T(456, 214, 'Cân thật', { s: 13, c: C.mute }) + T(456, 250, real + ' mL', { s: 28, c: C.redD }) + T(456, 286, s.g < real * .8 ? 'mắt đoán THIẾU' : 'đoán khá sát', { s: 14, c: s.g < real * .8 ? C.redD : C.green }), ZS.fresh(s, x => x.can)); }
     return o;
@@ -299,17 +447,17 @@ kit('bm-doan', {
   say: s => s.can ? ['worry', 'Mắt thường **đoán thiếu** lượng máu mất — càng nhiều càng thiếu. **Đo khách quan**: túi có vạch, cân gạc.'] : ['happy', 'Nhìn tấm lót và gạc: **bạn đoán** mất bao nhiêu mL? Kéo thanh, rồi bấm **⚖️ Cân thật** 👆']
 });
 kit('bm-can', {
-  init: () => ({ n: 0, tru: false }), ui: () => [{ t: 'range', k: 'n', label: '🧻 Số gạc đặt lên cân', min: 0, max: 4, step: 1, unit: '' }, { t: 'tog', k: 'tru', label: '➖ Trừ trọng lượng gạc khô' }], goal: s => s.n >= 3 && s.tru,
+  init: () => ({ n: 0, tru: false }), ui: () => [{ t: 'tog', k: 'tru', label: '➖ Trừ trọng lượng gạc khô' }], goal: s => s.n >= 3 && s.tru,
   draw: s => {
     const wet = [0, 140, 310, 470, 620][s.n], dry = s.n * 20, ml = s.tru ? wet - dry : wet;
-    let o = card(20, 20, 330, 316, '#fffdfa') + pic('sv-can.png', 50, 150, 270, 110);
+    let o = card(20, 20, 330, 316, '#fffdfa') + pic('sv-can.png', 50, 150, 270, 110) + ZS.BK.scrub('n', s.n, 0, 4, 1, ' gạc', 185, 56);
     o += [...Array(s.n)].map((_, i) => `<rect x="${90 + (i % 2) * 70}" y="${120 - Math.floor(i / 2) * 18}" width="62" height="22" rx="6" fill="#d23c50" opacity=".85" class="${i === s.n - 1 && ZS.fresh(s, z => z.n >= i + 1) ? 'fadein' : ''}"/>`).join('');
     o += T(185, 290, `${wet} g${s.tru ? ` − ${dry} g gạc khô` : ''}`, { s: 16 });
     o += card(362, 20, 188, 316) + T(456, 60, 'Máu mất ≈', { s: 13, c: C.mute }) + T(456, 104, ml + ' mL', { s: 28, c: C.redD }) + T(456, 138, '1 g ≈ 1 mL máu', { s: 12.5, c: C.mute });
     o += T(456, 196, 'trừ thêm: ối, nước tiểu', { s: 12, c: C.mute }) + T(456, 230, 'máu KHÔNG thu được:', { s: 12.5 }) + T(456, 250, 'buồng tử cung, ổ tụ,', { s: 12, c: C.redD }) + T(456, 268, 'giường, sàn', { s: 12, c: C.redD });
     return o;
   },
-  say: s => s.n >= 3 && s.tru ? ['happy', 'Cân gạc, **trừ trọng lượng khô** (1 g ≈ 1 mL). Nhớ **trừ dịch khác** và tìm máu **không thu được**: buồng tử cung, ổ tụ, giường, sàn.'] : ['happy', 'Đặt **3–4 gạc** lên cân, rồi bật **➖ Trừ gạc khô** 👆']
+  say: s => s.n >= 3 && s.tru ? ['happy', 'Cân gạc, **trừ trọng lượng khô** (1 g ≈ 1 mL). Nhớ **trừ dịch khác** và tìm máu **không thu được**: buồng tử cung, ổ tụ, giường, sàn.'] : ['happy', 'Rê ngang con số **[ 0 ] gạc** để đặt **3–4 gạc** lên cân, rồi bật **➖ Trừ gạc khô** 👆']
 });
 kit('bm-trig', {
   init: () => ({ ml: 200, hd: false }), ui: () => [{ t: 'range', k: 'ml', label: '🩸 Máu đo được', min: 0, max: 800, step: 50, unit: ' mL' }, { t: 'tog', k: 'hd', label: '💓 Huyết động bất thường' }], goal: s => s.hd && s.ml >= 300 && s.ml < 500,

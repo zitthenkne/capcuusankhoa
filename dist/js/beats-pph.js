@@ -197,21 +197,30 @@ kit('bp-ccd', {
   say: s => s.tha && s.hen ? ['worry', 'Không có thuốc “mạnh nhất cho mọi người”: **tăng HA, tiền sản giật** → tránh **methylergometrine**; **hen** → tránh **carboprost**.'] : ['happy', 'Bật **bệnh nền** của mẹ ở hàng trên — thuốc nào bị loại? 👆']
 });
 kit('bp-the', {
-  init: () => ({ seen: '' }), ui: () => [], after: (s, k) => markSeen(s, k), goal: s => DR.every(([k]) => seen(s, k)),
-  draw: s => DR.map(([k, n, d1, d2, d3], i) => { const x = 20 + i * 178, sn = seen(s, k);
-    return `<g class="tap" data-set="!${k}"><g transform="translate(${x + 85} 178)"><g transform="scale(${sn ? 1 : 1} 1)">${sn && ZS.fresh(s, z => seen(z, k)) ? '<animateTransform attributeName="transform" type="scale" values="1 1;0 1;1 1" dur=".5s"/>' : ''}<g transform="translate(${-x - 85} -178)">${card(x, 20, 170, 316, sn ? '#fffdf4' : C.lav, sn ? C.butterD : C.soft)}${sn ? T(x + 85, 56, n, { s: 14.5 }) + T(x + 85, 104, d1, { s: 14, c: C.redD }) + ZS.wrap(d2, 18).map((l, j) => T(x + 85, 150 + j * 20, l, { s: 13 })).join('') + T(x + 85, 250, d3, { s: 13, c: '#b5651d' }) : T(x + 85, 150, '💊', { s: 40 }) + T(x + 85, 200, n, { s: 14 }) + T(x + 85, 240, '👆 lật thẻ', { s: 13, c: C.soft })}</g></g></g></g>`; }).join(''),
-  say: s => DR.every(([k]) => seen(s, k)) ? ['happy', '**Methylergometrine 0,2 mg IM** · **Carboprost 250 µg IM sâu, không IV** · **Misoprostol 800 µg ngậm dưới lưỡi**. Là nội dung học có nguồn, không phải đơn thuốc cá thể.'] : ['happy', 'Lật **3 thẻ thuốc** xem liều và đường dùng 👆']
+  init: () => ({ sel: '', seen: '' }), ui: () => [{ t: 'seg', k: 'sel', opts: DR.map(([k, n]) => [k, n]) }], after: (s, k) => markSeen(s, s.sel), goal: s => DR.every(([k]) => seen(s, k)),
+  draw: s => {
+    const SITE = { me: [262, 232], ca: [226, 690], mi: [148, 112] }, CIN = { tha: 'THA, tiền sản giật', hen: 'Hen', tim: 'Bệnh tim' }, h = 300, kk = h / 1060, X0 = 44, Y0 = 26, P = (a, b) => [+(X0 + a * kk).toFixed(1), +(Y0 + b * kk).toFixed(1)];
+    const d = DR.find(([k]) => k === s.sel);
+    let o = card(20, 20, 200, 316, '#fffdfa') + pic('sv-phu-nu.png', X0, Y0, 297 * kk, h);
+    if (d) { const [sx, sy] = P(...SITE[d[0]]); o += `<g class="fadein"><circle cx="${sx}" cy="${sy}" r="15" fill="${C.red}" opacity=".3" class="pulse"/><circle cx="${sx}" cy="${sy}" r="7" fill="${C.red}" stroke="#fff" stroke-width="2"/></g>` + (d[0] === 'ca' ? `<g class="fadein">${T(...P(262, 440), '⛔', { s: 20 }).replace('<text', '<text')}${Th(24 + 150, P(262, 462)[1] + 14, 'KHÔNG IV', { a: 'end', s: 12, c: C.redD })}</g>` : ''); }
+    o += card(232, 20, 318, 316);
+    if (!d) o += T(391, 150, '👆 chọn một thuốc ở trên', { s: 15, c: C.soft }) + T(391, 176, 'xem chấm đỏ đặt ở đâu trên người mẹ', { s: 12.5, c: C.mute });
+    else { const CI = d[5].map(c => CIN[c]);
+      o += `<g class="fadein">${T(391, 62, d[1], { s: 17 })}${T(391, 100, d[2], { s: 19, c: C.redD })}${T(391, 126, d[3], { s: 12.5, c: C.mute })}<path d="M254 144 H528" stroke="${C.grid}"/>${T(391, 172, '⚠ ' + d[4], { s: 14, c: '#b5651d' })}${CI.length ? T(391, 214, 'TRÁNH khi mẹ có:', { s: 12.5, c: C.mute }) + CI.map((t, i) => T(391, 238 + i * 22, '⛔ ' + t, { s: 14, c: C.redD })).join('') : T(391, 220, 'chọn khi oxytocin không có / không đáp ứng', { s: 12.5, c: C.mute })}</g>`; }
+    return o;
+  },
+  say: s => DR.every(([k]) => seen(s, k)) ? ['happy', '**Methylergometrine 0,2 mg IM** · **Carboprost 250 µg IM sâu, không IV** · **Misoprostol 800 µg ngậm dưới lưỡi**. Là nội dung học có nguồn, không phải đơn thuốc cá thể.'] : ['happy', 'Chọn từng thuốc ở trên — **chấm đỏ** cho biết tiêm/ngậm ở đâu, kèm liều và điều cần tránh 👆']
 });
 kit('bp-tron', {
-  init: () => ({ ng: 'who', seen: 'who,' }), ui: () => [{ t: 'seg', k: 'ng', opts: [['who', '🌍 WHO / FIGO'], ['td', '🏥 Từ Dũ 2018']] }], after: s => markSeen(s, s.ng), goal: s => seen(s, 'td'),
+  init: () => ({ td: false }), ui: () => [{ t: 'tog', k: 'td', label: '🏥 So với phác đồ Từ Dũ 2018' }], goal: s => s.td,
   draw: s => {
-    const td = s.ng === 'td', R = [['Misoprostol', '800 µg ngậm dưới lưỡi', '800 µg đặt hậu môn'], ['Carboprost lặp lại', 'mỗi 15–90 phút', 'mỗi 30–90 phút']];
+    const td = s.td, R = [['Misoprostol', '800 µg ngậm dưới lưỡi', '800 µg đặt hậu môn'], ['Carboprost lặp lại', 'mỗi 15–90 phút', 'mỗi 30–90 phút']];
     let o = card(20, 20, 530, 316, '#fffdfa') + T(285, 56, td ? 'Phác đồ Từ Dũ 2018' : 'WHO 2025 / FIGO', { s: 17, c: td ? '#2b6cb0' : C.green });
     o += R.map(([a, w, t], i) => `<rect x="44" y="${84 + i * 92}" width="482" height="80" rx="16" fill="${td ? '#eef6ff' : '#eefaf3'}" stroke="${C.grid}"/>` + T(70, 116 + i * 92, a, { a: 'start', s: 14, c: C.mute }) + `<g class="fadein">${T(70, 146 + i * 92, td ? t : w, { a: 'start', s: 19 })}</g>`).join('');
     o += T(285, 292, '“Ergometrine” ≠ “methylergometrine”: khác tên, khác liều', { s: 13, c: C.redD }) + T(285, 316, 'đừng trộn hai phác đồ trong một lần dùng thuốc', { s: 12.5, c: C.mute });
     return o;
   },
-  say: s => seen(s, 'td') ? ['worry', 'Hai nguồn ghi khác nhau (misoprostol **dưới lưỡi** vs **hậu môn**, carboprost lặp **15–90′** vs **30–90′**). Biết rõ đang theo phác đồ nào, **không trộn**.'] : ['happy', 'Bấm **🏥 Từ Dũ 2018** để so với WHO 👆']
+  say: s => s.td ? ['worry', 'Hai nguồn ghi khác nhau (misoprostol **dưới lưỡi** vs **hậu môn**, carboprost lặp **15–90′** vs **30–90′**). Biết rõ đang theo phác đồ nào, **không trộn**.'] : ['happy', 'Bật **🏥 So với phác đồ Từ Dũ 2018** để đối chiếu với WHO 👆']
 });
 B['thuoc-go-hang-hai'] = [
   { t: 'Chọn thuốc theo chống chỉ định', kit: 'bp-ccd', cr: 'Bơm tiêm: ' + SV },
@@ -245,7 +254,7 @@ kit('bp-3h', {
   },
   say: s => seen(s, 'tre') && s.cho <= 3 ? ['wow', 'TXA **1 g IV trong 10 phút**, khởi đầu **trong 3 giờ tính từ lúc SINH** — không phải từ lúc phát hiện BHSS. Thêm 1 g nếu còn chảy sau 30 phút.'] : ['happy', 'Kéo **💉 Cho TXA** quá 3 giờ xem sao, rồi kéo về trong cửa sổ 👆']
 });
-tfKit('bp-txaq', [['TXA thay được thuốc gò', false], ['Chờ thuốc gò thất bại mới cho TXA', false], ['Chỉ dùng TXA khi đờ tử cung', false], ['Dùng sớm cùng chăm sóc chuẩn', true], ['Tránh khi có huyết khối đã biết', true], ['Suy rộng liều này cho mọi DIC, AFE', false]], 'TXA **sớm, cùng bundle**, không chỉ cho đờ; không thay thuốc gò; tránh khi có chống chỉ định huyết khối; **không tự suy rộng** sang mọi chảy máu.');
+tfKit('bp-txaq', [['TXA thay được thuốc gò', false, 'TXA chống tiêu fibrin, không làm co tử cung; vẫn cần thuốc co hồi.'], ['Chờ thuốc gò thất bại mới cho TXA', false, 'TXA càng sớm càng tốt (trong 3 giờ từ lúc sinh), dùng cùng bundle.'], ['Chỉ dùng TXA khi đờ tử cung', false, 'TXA dùng cho BHSS nói chung, không chỉ đờ tử cung.'], ['Dùng sớm cùng chăm sóc chuẩn', true, 'Đúng: sớm và cùng bundle.'], ['Tránh khi có huyết khối đã biết', true, 'Huyết khối đang có là chống chỉ định.'], ['Suy rộng liều này cho mọi DIC, AFE', false, 'Không tự suy rộng liều và chỉ định này sang mọi chảy máu khác.']], 'TXA **sớm, cùng bundle**, không chỉ cho đờ; không thay thuốc gò; tránh khi có chống chỉ định huyết khối; **không tự suy rộng** sang mọi chảy máu.');
 B['txa'] = [
   { t: 'TXA giữ lưới fibrin', kit: 'bp-txa' },
   { t: 'Cửa sổ 3 giờ từ lúc sinh', kit: 'bp-3h' },
@@ -314,7 +323,7 @@ kit('bp-pas2', {
   },
   say: s => seen(s, 'pas') ? ['worry', '**Sót mảnh nhau** còn mặt phẳng bóc tách; **PAS** thì gai nhau xuyên vào cơ, không có mặt phẳng → **cố bóc gây chảy máu thảm khốc**. Dừng, gọi đội.'] : ['happy', 'Nhau không ra — nhưng vì sao? Bấm **🌱 PAS** để so 👆']
 });
-tfKit('bp-tisq', [['Nhau bám chặt → nạo mù', false], ['Siêu âm thay hồi sức người đang chảy nặng', false], ['Lấy nhau bằng tay cần vô cảm, người có năng lực', true], ['Có nguy cơ nhiễm trùng, thủng tử cung', true], ['Nghi PAS: thử kéo mạnh xem có ra không', false], ['Hỏi: nhau sổ chưa, tự nhiên hay khó khăn', true]], 'Tissue: hỏi kỹ cách sổ nhau, kiểm múi màng; lấy nhau bằng tay cần **người có năng lực, vô cảm**; **không nạo mù**, nghi PAS **không cố kéo**.');
+tfKit('bp-tisq', [['Nhau bám chặt → nạo mù', false, 'Không nạo mù: nguy cơ thủng, chảy máu; cần can thiệp có kiểm soát.'], ['Siêu âm thay hồi sức người đang chảy nặng', false, 'Hồi sức đi trước; siêu âm chỉ hỗ trợ, không thay hồi sức.'], ['Lấy nhau bằng tay cần vô cảm, người có năng lực', true, 'Thủ thuật đau và nguy hiểm: cần vô cảm và người đủ kỹ năng.'], ['Có nguy cơ nhiễm trùng, thủng tử cung', true, 'Là biến chứng của lấy nhau thủ công hoặc nạo: phải cân nhắc.'], ['Nghi PAS: thử kéo mạnh xem có ra không', false, 'Nghi PAS thì KHÔNG cố kéo; dừng, gọi đội, theo kế hoạch.'], ['Hỏi: nhau sổ chưa, tự nhiên hay khó khăn', true, 'Cách nhau sổ giúp nghĩ tới sót nhau hoặc PAS.']], 'Tissue: hỏi kỹ cách sổ nhau, kiểm múi màng; lấy nhau bằng tay cần **người có năng lực, vô cảm**; **không nạo mù**, nghi PAS **không cố kéo**.');
 B['tissue'] = [
   { t: 'Còn nhau thì cơ khó khép', kit: 'bp-tis' },
   { t: 'Sót mảnh nhau khác PAS', kit: 'bp-pas2' },
@@ -341,7 +350,7 @@ kit('bp-dicnn', {
     return `<g class="tap" data-set="!${k}">${card(x, y, 170, 130, sn ? '#ffe0e6' : '#fff', sn ? C.pinkD : C.grid)}${T(x + 85, y + 62, ic, { s: 34 })}${T(x + 85, y + 100, t, { s: 14 })}${sn ? '' : T(x + 85, y + 120, '👆', { s: 12, c: C.soft })}</g>`; }).join('') + `<rect x="376" y="196" width="170" height="130" rx="16" fill="${C.butter}"/>` + T(461, 236, 'theo dõi nối tiếp:', { s: 12.5, c: C.mute }) + T(461, 262, 'tiểu cầu, PT/aPTT,', { s: 13 }) + T(461, 284, 'fibrinogen', { s: 13 }),
   say: s => DICC.every(([k]) => seen(s, k)) ? ['happy', 'DIC sản khoa: **NBN, AFE, nhiễm trùng, HELLP, mất máu nặng kéo dài**. Xét nghiệm **nối tiếp**: tiểu cầu, PT/aPTT, fibrinogen.'] : ['happy', 'Chạm **5 thẻ** nguyên nhân 👆']
 });
-tfKit('bp-dicq', [['DIC thì cứ dùng heparin', false], ['Điều trị nguyên nhân kích hoạt', true], ['Chỉ cần nhìn Hb', false], ['Fibrinogen mục tiêu ≥ 2 g/L', true], ['Bù thành phần đông máu theo nhu cầu', true], ['Tiểu cầu không quan trọng', false]], 'DIC: **xử trí nguyên nhân + hồi sức + bù thành phần** theo nhu cầu; fibrinogen **≥ 2 g/L**; **heparin không thường quy** khi đang chảy máu.');
+tfKit('bp-dicq', [['DIC thì cứ dùng heparin', false, 'Không dùng heparin thường quy khi đang chảy máu.'], ['Điều trị nguyên nhân kích hoạt', true, 'Gỡ nguyên nhân (nhau bong, AFE, nhiễm trùng…) thì DIC mới dừng.'], ['Chỉ cần nhìn Hb', false, 'Cần tiểu cầu, PT/aPTT, fibrinogen; Hb đơn độc không đủ.'], ['Fibrinogen mục tiêu ≥ 2 g/L', true, 'WHO 2025: giữ fibrinogen ≥ 2 g/L.'], ['Bù thành phần đông máu theo nhu cầu', true, 'Bù đúng thứ đang thiếu (huyết tương, fibrinogen, tiểu cầu…).'], ['Tiểu cầu không quan trọng', false, 'Tiểu cầu giảm góp phần chảy máu; dưới ngưỡng kèm chảy vi mạch thì cân nhắc bù.']], 'DIC: **xử trí nguyên nhân + hồi sức + bù thành phần** theo nhu cầu; fibrinogen **≥ 2 g/L**; **heparin không thường quy** khi đang chảy máu.');
 B['thrombin'] = [
   { t: 'DIC: đông khắp nơi rồi hết đông', kit: 'bp-dic', cr: 'Bơm tiêm: ' + SV },
   { t: 'Ai kích hoạt DIC?', kit: 'bp-dicnn' },
@@ -350,27 +359,72 @@ B['thrombin'] = [
 
 // ═════════ Bóng chèn, ép, phẫu thuật
 kit('bp-ep', {
-  init: () => ({ ep: false }), ui: () => [{ t: 'tog', k: 'ep', label: '👐 Ép tử cung bằng hai tay' }], goal: s => s.ep,
+  init: () => ({ luc: 0 }), ui: () => [{ t: 'range', k: 'luc', label: '👐 Lực ép hai tay (Bimanual)', min: 0, max: 100, step: 10, unit: '%' }], goal: s => s.luc >= 70,
   draw: s => {
-    const e = s.ep;
-    let o = card(20, 20, 330, 316, '#fffdfa') + `<g transform="translate(185 180) scale(${e ? .8 : 1} 1)"><g transform="translate(-185 -180)">${ZS.uterusSag({ x: 185, y: 60, k: .64 })}</g></g>` + (e ? '' : drops(185, 310, 3, .8, 16));
-    o += `<g transform="translate(${e ? 92 : 50} 120)">${pic('sv-ban-tay.png', 0, 0, 60, 104, 'transform="rotate(-90 30 52)"')}</g><g transform="translate(${e ? 220 : 262} 120)">${pic('sv-ban-tay.png', 0, 0, 60, 104, 'transform="rotate(90 30 52)"')}</g>` + (e ? arrow('M120 100 L150 140', C.green, 4) + arrow('M250 100 L220 140', C.green, 4) : '');
-    o += card(362, 20, 188, 316) + (e ? ZS.fade(verdict(378, 100, 156, true, 'tạm cầm máu', 'cầu nối khi đờ') + T(456, 230, 'trong lúc chuẩn bị', { s: 12.5, c: C.mute }) + T(456, 250, 'biện pháp triệt để', { s: 12.5, c: C.mute }), true) : T(456, 160, '👆 bật ép', { s: 14, c: C.soft }));
+    const f = s.luc / 100, hot = f >= .7, sc = 1 - .32 * f;
+    let o = card(20, 20, 330, 316, '#fffdfa');
+    o += `<g transform="translate(185 180) scale(${sc} 1) translate(-185 -180)">${ZS.uterusSag({ x: 185, y: 60, k: .64 })}</g>`;
+    if (!hot) o += drops(185, 310, Math.max(1, Math.round(3 * (1 - f))), .8, 16);
+    const xL = 50 + 46 * f, xR = 262 - 46 * f;
+    o += `<g transform="translate(${xL} 120)">${pic('sv-ban-tay.png', 0, 0, 60, 104, 'transform="rotate(-90 30 52)"')}</g><g transform="translate(${xR} 120)">${pic('sv-ban-tay.png', 0, 0, 60, 104, 'transform="rotate(90 30 52)"')}</g>`;
+    if (f > 0) {
+      o += arrow(`M${xL + 60} 150 L${xL + 86} 150`, C.green, 3 + 2 * f);
+      o += arrow(`M${xR} 150 L${xR - 26} 150`, C.green, 3 + 2 * f);
+    }
+    o += Th(185, 46, hot ? '✓ Hai thành TC ép chặt' : 'Đờ tử cung chảy máu', { s: 13, c: hot ? C.green : C.redD });
+    o += card(362, 20, 188, 316);
+    o += T(456, 52, 'Ép tử cung hai tay', { s: 14 });
+    o += T(456, 78, 'lực ép: ' + s.luc + '%', { s: 13, c: hot ? C.green : C.mute });
+    o += ZS.bar(378, 92, 156, s.luc, hot ? C.green : C.amber, '', { h: 12 });
+    if (hot) {
+      o += `<g class="fadein">` + verdict(378, 126, 156, true, 'TẠM CẦM MÁU', 'ép cơ học lòng TC');
+      o += `<rect x="378" y="200" width="156" height="88" rx="12" fill="${C.mint}"/>` + T(456, 222, 'Cầu nối quý giá:', { s: 12.5, c: '#237352' }) + T(456, 244, 'chờ thuốc ngấm,', { s: 12, c: C.mute }) + T(456, 264, 'chuẩn bị bóng / mổ', { s: 12, c: C.mute }) + `</g>`;
+    } else {
+      o += T(456, 170, '👆 kéo thanh lực ép', { s: 13.5, c: C.soft }) + T(456, 196, 'ép thành trước–sau', { s: 12.5, c: C.mute });
+    }
     return o;
   },
-  say: s => s.ep ? ['happy', '**Ép tử cung bằng hai tay** ép thành cơ lại — là **cầu nối** trong đờ khi chuẩn bị bóng chèn hay phẫu thuật.'] : ['happy', 'Thuốc chưa đủ. Bấm **👐 Ép tử cung bằng hai tay** 👆']
+  say: s => s.luc >= 70 ? ['happy', '**Ép tử cung bằng hai tay** ép hai thành cơ lại — là **cầu nối** quý giá trong đờ khi chờ thuốc ngấm hoặc chuẩn bị bóng chèn / phẫu thuật.'] : ['happy', 'Thuốc chưa đủ cầm máu. Kéo thanh **👐 Lực ép hai tay** để ép hai thành tử cung lại 👆']
 });
 kit('bp-bong', {
   init: () => ({ ml: 0, rach: false }), ui: () => [{ t: 'range', k: 'ml', label: '🎈 Bơm bóng', min: 0, max: 500, step: 50, unit: ' mL' }, { t: 'tog', k: 'rach', label: '✂️ Nguồn là vết rách âm đạo' }], goal: s => s.ml >= 300 && s.rach,
   draw: s => {
     const f = s.ml / 500, stop = f >= .6 && !s.rach;
-    let o = card(20, 20, 330, 316, '#fffdfa') + ZS.uterusSag({ x: 185, y: 40, k: .74 }) + `<ellipse cx="185" cy="${142 + 14 * (1 - f)}" rx="${16 + 34 * f}" ry="${20 + 44 * f}" fill="#d9ecff" stroke="#7cb8f0" stroke-width="2" opacity=".9"/><path d="M185 ${162 + 30 * f} V330" stroke="#7cb8f0" stroke-width="4"/>`;
-    o += s.rach ? `<path d="M160 300 l-10 14 l6 8" fill="none" stroke="${C.redD}" stroke-width="3.5"/>` + drops(150, 330, 2, .7) + Th(110, 296, 'rách âm đạo', { s: 12.5, c: C.redD }) : (stop ? '' : drops(185, 300, 2, .7));
-    o += card(362, 20, 188, 316) + (s.rach ? verdict(378, 70, 156, false, 'bóng vô ích', 'nguồn không ở buồng TC') : stop ? verdict(378, 70, 156, true, 'cầm được', 'ép từ bên trong') : T(456, 100, 'bơm bóng…', { s: 14, c: C.soft }));
-    o += T(456, 180, 'Điều kiện (WHO):', { s: 12.5 }) + ['thất bại đầu tay', 'đã loại Trauma/Tissue', 'người huấn luyện', 'sẵn máu & phẫu thuật'].map((t, i) => T(378, 206 + i * 22, '✓ ' + t, { a: 'start', s: 12 })).join('');
+    let o = card(20, 20, 330, 316, '#fffdfa');
+    o += `<defs><radialGradient id="gBakri" cx="35%" cy="30%" r="70%"><stop offset="0%" stop-color="#ffffff" stop-opacity=".95"/><stop offset="50%" stop-color="#bae0fd" stop-opacity=".85"/><stop offset="100%" stop-color="#3b82f6" stop-opacity=".9"/></radialGradient></defs>`;
+    // Tử cung và cơ
+    o += ZS.uterusSag({ x: 185, y: 38, k: .74 });
+    // Bóng Bakri silicone bơm nước muối phồng to ép sát lòng tử cung
+    if (s.ml > 0) {
+      const rx = 14 + 38 * f, ry = 22 + 48 * f, cy = 138 + 10 * (1 - f);
+      // Áp lực ép ra thành cơ
+      if (f >= .6) o += `<path d="M${185 - rx - 4} ${cy} Q${185} ${cy - ry - 6} ${185 + rx + 4} ${cy}" fill="none" stroke="#60a5fa" stroke-width="2" stroke-dasharray="4 3" class="pulse"/>`;
+      // Thân bóng
+      o += `<ellipse cx="185" cy="${cy}" rx="${rx}" ry="${ry}" fill="url(#gBakri)" stroke="#2563eb" stroke-width="2.2" opacity=".95"/>`;
+      // Vân phản quang ánh nước
+      o += `<ellipse cx="${185 - rx * .3}" cy="${cy - ry * .3}" rx="${rx * .4}" ry="${ry * .3}" fill="#fff" opacity=".5"/>`;
+      // Lỗ dẫn lưu đỉnh bóng (drainage eyelet)
+      o += `<circle cx="185" cy="${cy - ry + 8}" r="3" fill="#1d4ed8"/>`;
+      // Ống dẫn lưu 24Fr (dual lumen) chạy từ đỉnh bóng qua cổ tử cung ra ngoài
+      o += `<path d="M185 ${cy - ry + 8} V306" stroke="#2563eb" stroke-width="4.5" stroke-linecap="round"/>`;
+      // Lòng dẫn lưu máu bên trong ống
+      o += `<path d="M185 ${cy - ry + 12} V306" stroke="${stop ? '#f43f5e' : '#be123c'}" stroke-width="2"/>`;
+      // Túi hứng dịch dẫn lưu bên ngoài
+      o += `<g transform="translate(172 304)"><rect width="26" height="24" rx="4" fill="#f8fafc" stroke="#64748b" stroke-width="1.5"/><line x1="175" y1="310" x2="195" y2="310" stroke="#cbd5e1" stroke-width="1"/><line x1="175" y1="316" x2="195" y2="316" stroke="#cbd5e1" stroke-width="1"/><rect x="2" y="${stop ? 16 : 6}" width="22" height="${stop ? 6 : 16}" rx="2" fill="${stop ? '#fda4af' : '#e11d48'}"/></g>`;
+    }
+    // Máu chảy nếu có vết rách hoặc chưa đủ áp lực
+    if (s.rach) {
+      o += `<path d="M152 278 l-8 12 l6 10" fill="none" stroke="${C.redD}" stroke-width="4"/><circle cx="152" cy="278" r="4" fill="${C.redD}"/>` + drops(144, 308, 3, .85, 14) + Th(102, 274, 'rách âm đạo!', { s: 12.5, c: C.redD });
+    } else if (!stop) {
+      o += drops(185, 298, 2, .75, 14);
+    }
+    // Nhãn chú thích bóng
+    if (s.ml > 0) o += Th(185, 138, `${s.ml} mL saline`, { s: 12, c: '#1e3a8a' });
+    o += card(362, 20, 188, 316) + (s.rach ? verdict(378, 68, 156, false, 'bóng vô ích!', 'nguồn ở rách âm đạo, không phải buồng TC') : stop ? verdict(378, 68, 156, true, 'cầm được máu', 'Tamponade test (+): ép lòng tử cung') : T(456, 95, 'bơm bóng…', { s: 14, c: C.soft }));
+    o += T(456, 175, 'Điều kiện chèn bóng (WHO):', { s: 12, c: C.ink }) + ['Thất bại với thuốc đầu tay', 'Đã loại trừ Trauma / Tissue', 'Nhân viên đã được huấn luyện', 'Sẵn sàng máu & phẫu thuật'].map((t, i) => T(378, 202 + i * 22, '✓ ' + t, { a: 'start', s: 11.5 })).join('');
     return o;
   },
-  say: s => s.ml >= 300 && s.rach ? ['worry', 'Bóng chèn **ép từ trong buồng tử cung** — vô ích khi nguồn là **vết rách**, đặt sai hay tuột. Đừng để bóng tạo **an toàn giả**.'] : ['happy', 'Bơm **🎈 bóng** tới 300 mL, rồi bật **✂️ Nguồn là vết rách** 👆']
+  say: s => s.ml >= 300 && s.rach ? ['worry', 'Bóng chèn **ép từ trong buồng tử cung** — hoàn toàn vô ích khi máu chảy do **vết rách âm đạo** (Trauma). Phải kiểm tra đúng nguồn!'] : ['happy', 'Bơm **🎈 bóng** tới 300 mL, rồi bật **✂️ Nguồn là vết rách** 👆']
 });
 const LAD = [['🪢', 'Khâu ép B-Lynch', 'ép thành tử cung'], ['🩸', 'Thắt / thuyên tắc mạch', 'giảm dòng máu tới'], ['🏥', 'Cắt tử cung', 'cứu sống']];
 kit('bp-thang', {
@@ -392,44 +446,85 @@ B['bong-ep-phau-thuat'] = [
 
 // ═════════ Lộn tử cung
 const inv = (d, x = 185, y = 40) => { // d 0–3: bình thường → đáy lõm → lộn trong buồng → ra âm đạo
-  const k = .68, top = y + 10 * k + d * 40;
-  let s = ZS.uterusSag({ x, y, k });
-  if (d > 0) s += `<path d="M${x - 70} ${y + 14} Q${x} ${top + 10} ${x + 70} ${y + 14}" fill="#fff" stroke="${C.myoD}" stroke-width="2"/><path d="M${x - 50} ${y + 16} Q${x} ${top} ${x + 50} ${y + 16}" fill="url(#gMyo)" stroke="${C.myoD}"/>`;
-  if (d >= 3) s += `<path d="M${x - 16} ${top} Q${x - 22} ${y + 200} ${x - 30} ${y + 230} H${x + 30} Q${x + 22} ${y + 200} ${x + 16} ${top}Z" fill="url(#gMyo)" stroke="${C.myoD}" stroke-width="1.4"/><ellipse cx="${x}" cy="${y + 240}" rx="44" ry="30" fill="url(#gMyo)" stroke="${C.myoD}" stroke-width="1.6"/>` + T(x, y + 246, 'đáy', { s: 12, c: '#fff' });
-  return s; };
+  const k = .68;
+  if (d === 0) {
+    return ZS.uterusSag({ x, y, k }) + Th(x, y + 14, 'đáy tử cung bình thường', { s: 11.5, c: C.mute });
+  }
+  let s = `<defs><linearGradient id="gInvWall" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#b91c1c"/><stop offset="50%" stop-color="#991b1b"/><stop offset="100%" stop-color="#7f1d1d"/></linearGradient></defs>`;
+  // Thành chậu / thành bụng với hố lõm (cupping depression)
+  s += `<path d="M${x - 90} ${y + 20} H${x - 45} Q${x} ${y + 30 + d * 18} ${x + 45} ${y + 20} H${x + 90}" fill="none" stroke="#cbd5e1" stroke-width="3" stroke-dasharray="4 3"/>`;
+  s += Th(x, y + 10, d >= 2 ? '⚠ HỐ LÕM TRÊN XƯƠNG MU (MẤT ĐÁY)' : 'đáy bắt đầu lõm', { s: 11, c: d >= 2 ? C.redD : C.mute });
+
+  if (d === 1) { // Độ 1: đáy lõm hình chén vào buồng
+    s += ZS.uterusSag({ x, y, k });
+    s += `<path d="M${x - 52} ${y + 36} Q${x} ${y + 90} ${x + 52} ${y + 36}" fill="#fff" stroke="${C.myoD}" stroke-width="2.5"/>`;
+    s += `<path d="M${x - 42} ${y + 40} Q${x} ${y + 80} ${x + 42} ${y + 40}" fill="url(#gMyo)" stroke="${C.myoD}" stroke-width="1.8"/>`;
+    s += arrow(`M${x} ${y + 30} V${y + 68}`, C.red, 3.5);
+  } else if (d === 2) { // Độ 2: lộn vào trong buồng chạm lỗ trong CTC
+    s += `<path d="M${x - 58} ${y + 38} Q${x - 50} ${y + 160} ${x - 30} ${y + 210} H${x + 30} Q${x + 50} ${y + 160} ${x + 52} ${y + 38} Q${x} ${y + 110} ${x - 58} ${y + 38}Z" fill="#fed7aa" stroke="${C.myoD}" stroke-width="2"/>`;
+    // Khối đáy lộn ngược màu đỏ nội mạc
+    s += `<path d="M${x - 34} ${y + 110} Q${x - 38} ${y + 190} ${x} ${y + 208} Q${x + 38} ${y + 190} ${x + 34} ${y + 110}Z" fill="url(#gInvWall)" stroke="#7f1d1d" stroke-width="2"/>`;
+    s += Th(x, y + 165, 'đáy lộn trong buồng', { s: 11, c: '#fff' });
+    s += drops(x, y + 215, 2, .7, 10);
+  } else { // Độ 3: lộn hoàn toàn ra âm đạo/âm hộ + vòng thắt cổ tử cung
+    // Thành âm đạo giãn rộng
+    s += `<path d="M${x - 65} ${y + 150} Q${x - 55} ${y + 240} ${x - 45} ${y + 300} M${x + 65} ${y + 150} Q${x + 55} ${y + 240} ${x + 45} ${y + 300}" fill="none" stroke="#fbcfe8" stroke-width="4"/>`;
+    // Vòng thắt cổ tử cung (cervical constriction ring) siết chặt cuống
+    s += `<ellipse cx="${x}" cy="${y + 162}" rx="32" ry="10" fill="#7f1d1d" fill-opacity=".3" stroke="#991b1b" stroke-width="3.5"/>`;
+    s += Th(x + 68, y + 164, 'vòng thắt CTC', { s: 11, c: C.redD });
+    // Khối đáy tử cung lộn ngược toàn bộ ra âm đạo - phơi bày mặt nội mạc đỏ bầm
+    s += `<path d="M${x - 22} ${y + 166} Q${x - 48} ${y + 210} ${x - 36} ${y + 258} Q${x} ${y + 276} ${x + 36} ${y + 258} Q${x + 48} ${y + 210} ${x + 22} ${y + 166}Z" fill="url(#gInvWall)" stroke="#450a0a" stroke-width="2.5"/>`;
+    // Niêm mạc nội mạc rỉ máu + lỗ vòi tử cung
+    s += `<circle cx="${x - 18}" cy="${y + 230}" r="3" fill="#450a0a"/><circle cx="${x + 18}" cy="${y + 230}" r="3" fill="#450a0a"/>`;
+    s += `<ellipse cx="${x}" cy="${y + 250}" rx="14" ry="7" fill="#450a0a" opacity=".4"/>`;
+    s += Th(x, y + 236, 'ĐÁY LỘN RA ÂM ĐẠO', { s: 11.5, c: '#fff' });
+    s += drops(x, y + 282, 3, .8, 12);
+  }
+  return s;
+};
 kit('bp-lon', {
   init: () => ({ d: 0 }), ui: () => [{ t: 'range', k: 'd', label: '⬇️ Mức lộn', min: 0, max: 3, step: 1, unit: '/3' }], goal: s => s.d >= 3,
   draw: s => {
-    let o = card(20, 20, 330, 316, '#fffdfa') + inv(s.d) + Th(185, 32, 'bụng', { s: 12, c: C.mute });
-    const L = ['Bình thường', 'Đáy lõm vào', 'Lộn trong buồng tử cung', 'Lộn ra âm đạo'];
-    o += card(362, 20, 188, 316) + T(456, 70, L[s.d], { s: 15, c: s.d ? C.redD : C.green }) + T(456, 120, 'sờ đáy qua bụng:', { s: 12.5, c: C.mute }) + T(456, 144, s.d >= 2 ? 'KHÔNG thấy' : s.d === 1 ? 'lõm' : 'thấy', { s: 16, c: s.d >= 2 ? C.redD : C.ink });
-    if (s.d >= 2) o += ZS.fade(T(456, 200, '⚠ đau dữ dội', { s: 13, c: C.redD }) + T(456, 224, '⚠ chảy máu', { s: 13, c: C.redD }) + T(456, 248, '⚠ sốc nhanh', { s: 13, c: C.redD }), ZS.fresh(s, x => x.d >= 2));
+    let o = card(20, 20, 330, 316, '#fffdfa') + inv(s.d);
+    const L = ['Bình thường', 'Độ 1: Đáy lõm vào', 'Độ 2: Lộn trong buồng TC', 'Độ 3: Lộn ra âm đạo'];
+    o += card(362, 20, 188, 316) + T(456, 68, L[s.d], { s: 14, c: s.d ? C.redD : C.green }) + T(456, 115, 'Sờ đáy qua bụng:', { s: 12.5, c: C.mute }) + T(456, 140, s.d >= 2 ? '❌ KHÔNG THẤY (hố lõm)' : s.d === 1 ? '⚠️ Đáy lõm hình chén' : '✓ Sờ rõ đáy trên vệ', { s: 13.5, c: s.d >= 2 ? C.redD : C.ink });
+    if (s.d >= 2) o += ZS.fade(T(456, 195, '🚨 Đau dữ dội (phế vị)', { s: 12.5, c: C.redD }) + T(456, 220, '🩸 Chảy máu ồ ạt', { s: 12.5, c: C.redD }) + T(456, 245, '⚠️ Sốc nhanh quá lượng máu', { s: 12, c: C.redD }), ZS.fresh(s, x => x.d >= 2));
     return o;
   },
-  say: s => s.d >= 3 ? ['ouch', 'Lộn tử cung: **đáy bị kéo vào trong**, có thể ra tới âm đạo. Sờ bụng **không thấy đáy**, đau, chảy máu, **sốc nhanh**.'] : ['happy', 'Kéo thanh **⬇️ Mức lộn** — nhìn đáy tử cung 👆']
+  say: s => s.d >= 3 ? ['ouch', 'Lộn tử cung: **đáy bị kéo tụt ra ngoài**, qua vòng thắt cổ tử cung. Sờ bụng **mất đáy (hố lõm)**, đau dữ dội và **sốc thần kinh/mất máu nhanh**.'] : ['happy', 'Kéo thanh **⬇️ Mức lộn** — quan sát đáy tử cung biến đổi 👆']
 });
 kit('bp-phanbiet', {
   init: () => ({ k: '', seen: '' }), ui: () => [{ t: 'seg', k: 'k', opts: [['do', '😮‍💨 Đờ tử cung'], ['lon', '⬇️ Lộn tử cung']] }], after: s => markSeen(s, s.k), goal: s => seen(s, 'do') && seen(s, 'lon'),
   draw: s => {
     let o = card(20, 20, 330, 316, '#fffdfa') + (s.k === 'lon' ? inv(3) : s.k === 'do' ? ut(185, 40, .74, { soft: true }) : ut(185, 40, .6)) + `<g transform="translate(150 6)">${pic('sv-ban-tay.png', 0, 0, 40, 70, 'transform="rotate(180 20 35)"')}</g>`;
-    const M = { do: ['đáy CÒN ở bụng', 'mềm, to', 'xoa + thuốc co hồi'], lon: ['đáy MẤT ở bụng', 'khối trong âm đạo', 'hoàn vị — chưa dùng thuốc co'] }[s.k];
-    o += card(362, 20, 188, 316) + (M ? ZS.fade(T(456, 80, M[0], { s: 15, c: s.k === 'lon' ? C.redD : '#b5651d' }) + T(456, 110, M[1], { s: 13, c: C.mute }) + T(456, 180, '→ ' + M[2].split(' — ')[0], { s: 13.5 }) + (M[2].includes('—') ? T(456, 202, M[2].split(' — ')[1], { s: 12.5, c: C.redD }) : ''), ZS.fresh(s, x => x.k === s.k)) : T(456, 160, '👆 chọn', { s: 14, c: C.soft }));
+    const M = { do: ['đáy CÒN ở bụng', 'mềm nhão, to trên rốn', 'xoa đáy + thuốc co hồi'], lon: ['đáy MẤT ở bụng', 'khối thịt đỏ trong âm đạo', 'hoàn vị TRƯỚC — cấm thuốc co'] }[s.k];
+    o += card(362, 20, 188, 316) + (M ? ZS.fade(T(456, 75, M[0], { s: 14.5, c: s.k === 'lon' ? C.redD : '#b5651d' }) + T(456, 105, M[1], { s: 12.5, c: C.mute }) + T(456, 175, '→ ' + M[2].split(' — ')[0], { s: 13 }) + (M[2].includes('—') ? T(456, 198, M[2].split(' — ')[1], { s: 12, c: C.redD }) : ''), ZS.fresh(s, x => x.k === s.k)) : T(456, 160, '👆 chọn thẻ để phân biệt', { s: 13.5, c: C.soft }));
     return o;
   },
-  say: s => seen(s, 'do') && seen(s, 'lon') ? ['worry', 'Cùng “tử cung mềm” nhưng khác hẳn: **đờ** thì đáy còn ở bụng; **lộn** thì **mất đáy** + khối trong âm đạo. Phải xác định **vị trí đáy**.'] : ['happy', 'Tay sờ bụng sau sổ nhau. So **đờ** với **lộn** 👆']
+  say: s => seen(s, 'do') && seen(s, 'lon') ? ['worry', 'Cùng là “chảy máu sau sinh”: **đờ** thì đáy còn trên bụng; **lộn** thì **mất đáy bụng** + khối đỏ âm đạo. Cấm dùng thuốc co khi chưa hoàn vị!'] : ['happy', 'Đặt bàn tay sờ bụng sau sinh. So sánh **đờ tử cung** với **lộn tử cung** 👆']
 });
 kit('bp-hoanvi', {
   init: () => ({ thuoc: false, hv: false, sw: false }), ui: () => [{ t: 'tog', k: 'thuoc', label: '💉 Dùng thuốc co TRƯỚC' }, { t: 'tog', k: 'hv', label: '🤲 Hoàn vị đáy tử cung' }], after: (s, k) => { if (s.thuoc) s.sw = true; }, goal: s => s.hv && s.sw && !s.thuoc,
   draw: s => {
     const stuck = s.thuoc && !s.hv;
-    let o = card(20, 20, 330, 316, '#fffdfa') + (s.hv && !s.thuoc ? `<g class="fadein">${ut(185, 40, .62)}</g>` : inv(3)) + (stuck ? `<ellipse cx="185" cy="232" rx="30" ry="9" fill="none" stroke="${C.red}" stroke-width="4"/>` + Th(260, 236, 'vòng thắt siết lại', { s: 12.5, c: C.redD }) : '');
-    if (s.hv && !s.thuoc) o += ZS.drawIn(arrow('M185 300 V200', C.green, 5), .7);
-    o += card(362, 20, 188, 316) + T(456, 50, 'Thứ tự:', { s: 13.5 }) + ['🆘 gọi hỗ trợ', '🫁 hồi sức', '🤲 hoàn vị (người có năng lực)', '💉 rồi mới thuốc co'].map((t, i) => T(374, 82 + i * 30, t, { a: 'start', s: 12.5 })).join('');
-    o += s.hv && s.thuoc ? verdict(374, 220, 164, false, 'tắt thuốc co đã') : s.hv ? verdict(374, 220, 164, true, 'đã về vị trí', 'giờ mới duy trì co') : stuck ? verdict(374, 220, 164, false, 'khó hoàn vị hơn') : '';
-    o += T(456, 312, 'nhau còn bám: không bóc thêm', { s: 11.5, c: C.mute });
+    let o = card(20, 20, 330, 316, '#fffdfa');
+    if (s.hv && !s.thuoc) {
+      o += `<g class="fadein">${ut(185, 40, .64)}</g>`;
+      // Bàn tay hoàn vị Johnson đẩy từ đáy lên hướng rốn
+      o += `<g transform="translate(160 210)">${pic('sv-ban-tay.png', 0, 0, 50, 85, 'transform="rotate(0 25 42)"')}</g>`;
+      o += ZS.drawIn(arrow('M185 290 V175', C.green, 5), .7) + Th(185, 160, 'Thủ thuật Johnson (đẩy về rốn)', { s: 12, c: C.green });
+    } else {
+      o += inv(3);
+      if (stuck) {
+        o += `<ellipse cx="185" cy="202" rx="36" ry="12" fill="none" stroke="${C.red}" stroke-width="5" class="pulse"/>` + Th(268, 206, 'vòng thắt siết cứng!', { s: 12, c: C.redD });
+      }
+    }
+    o += card(362, 20, 188, 316) + T(456, 48, 'Trình tự cấp cứu vàng:', { s: 13, c: C.ink }) + ['🆘 Báo động đỏ toàn viện', '🫁 Hồi sức dịch + chống sốc', '🤲 Hoàn vị trước (Johnson)', '💉 Sau khi về vị trí: thuốc co'].map((t, i) => T(374, 78 + i * 28, t, { a: 'start', s: 11.5 })).join('');
+    o += s.hv && s.thuoc ? verdict(374, 210, 164, false, 'tắt thuốc co đã!') : s.hv ? verdict(374, 210, 164, true, 'đã hoàn vị thành công', 'bây giờ mới duy trì co hồi') : stuck ? verdict(374, 210, 164, false, 'kẹt tử cung!', 'cổ siết nghẹt, không đẩy lên được') : '';
+    o += T(456, 312, 'Nếu nhau chưa bong: KHÔNG bóc trước', { s: 11, c: C.mute });
     return o;
   },
-  say: s => s.hv && s.sw && !s.thuoc ? ['wow', 'Gọi hỗ trợ, hồi sức, **hoàn vị trước**; chỉ khi tử cung **đã về vị trí** mới dùng thuốc co. Không hoàn vị được → giãn cơ, vô cảm, phẫu thuật.'] : ['happy', 'Thử bật **💉 Thuốc co TRƯỚC** xem sao, rồi tắt đi và **🤲 Hoàn vị** 👆']
+  say: s => s.hv && s.sw && !s.thuoc ? ['wow', 'Hồi sức, **hoàn vị Johnson trước** bằng lòng bàn tay theo trục khung chậu. Khi tử cung **đã về vị trí** mới truyền oxytocin co hồi!'] : ['happy', 'Thử bật **💉 Thuốc co TRƯỚC** xem hậu quả siết vòng thắt, rồi tắt đi và **🤲 Hoàn vị** 👆']
 });
 B['lon-tu-cung'] = [
   { t: 'Đáy tử cung bị kéo vào trong', kit: 'bp-lon' },

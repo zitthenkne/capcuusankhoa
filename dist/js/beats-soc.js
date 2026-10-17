@@ -23,7 +23,7 @@ kit('bs-domino', {
   },
   say: s => s.run && s.stop ? ['wow', 'Sốc đi từ **bù trừ → mất bù → suy cơ quan**. Đích của nhận diện sớm là **chặn chuỗi** trước khi mẹ tụt áp sâu.'] : s.run ? ['ouch', 'Không ai chặn → domino đổ hết tới **suy cơ quan**. Bật thêm **🛑 Can thiệp sớm** 👆'] : ['happy', 'Bấm **▶ Để mất máu tiếp** xem chuỗi domino 👆']
 });
-const NSD = { nhin: [['Xanh tái, vã mồ hôi', 148, 120], ['Bứt rứt → lơ mơ', 148, 70], ['Thở nhanh', 150, 230]], so: [['Mạch nhanh, yếu', 60, 470], ['Da lạnh', 40, 560], ['Tưới máu ngoại vi kém', 250, 565]], do: [['Sinh hiệu nối tiếp', 250, 380], ['Máu đang mất', 148, 520], ['Nước tiểu', 150, 440]] };
+const NSD = { nhin: [['Bứt rứt → lơ mơ', 148, 60], ['Xanh tái, vã mồ hôi', 100, 122], ['Thở nhanh', 150, 235]], so: [['Mạch nhanh, yếu', 32, 556], ['Tưới máu ngoại vi kém', 268, 590], ['Da lạnh', 120, 1010]], do: [['Sinh hiệu nối tiếp', 262, 330], ['Nước tiểu', 150, 490], ['Máu đang mất', 150, 566]] };
 kit('bs-nsd', {
   init: () => ({ m: 'nhin', seen: 'nhin,' }), ui: () => [{ t: 'seg', k: 'm', opts: [['nhin', '👀 Nhìn'], ['so', '🖐 Sờ'], ['do', '📏 Đo']] }], after: s => markSeen(s, s.m), goal: s => ['nhin', 'so', 'do'].every(k => seen(s, k)),
   draw: s => {
@@ -41,22 +41,26 @@ kit('bs-lit', {
   draw: s => {
     let o = card(20, 20, 530, 316, '#fffdfa');
     o += TOL.map(([n, th, sub], i) => { const x = 40 + i * 128, sh = s.ml >= th, f = Math.min(1, s.ml / th);
-      return `${pic('sv-phu-nu.png', x + 30, 40, 54, 192)}<rect x="${x + 30}" y="40" width="54" height="192" fill="${sh ? '#9fb4ff' : 'none'}" opacity="${sh ? .35 : 0}" rx="8"/>` + T(x + 57, 254, n, { s: 14 }) + T(x + 57, 272, sub, { s: 11.5, c: C.mute }) + ZS.bar(x + 12, 284, 90, f * 100, sh ? C.red : f > .7 ? C.amber : C.mintD, '', { h: 10 }) + T(x + 57, 318, sh ? 'SỐC' : 'còn chịu', { s: 14, c: sh ? C.redD : C.green }); }).join('');
+      return `${ZS.BK.tintPic('sv-phu-nu.png', x + 30, 40, 54, 192, sh ? .85 : 0)}` + T(x + 57, 254, n, { s: 14 }) + T(x + 57, 272, sub, { s: 11.5, c: C.mute }) + ZS.bar(x + 12, 284, 90, f * 100, sh ? C.red : f > .7 ? C.amber : C.mintD, '', { h: 10 }) + T(x + 57, 318, sh ? 'SỐC' : 'còn chịu', { s: 14, c: sh ? C.redD : C.green }); }).join('');
     o += T(285, 336, 'số minh họa — ngưỡng mỗi người mỗi khác', { s: 10.5, c: C.mute });
     return o;
   },
   say: s => s.ml >= 800 ? ['worry', 'Cùng lượng máu mất, người **thiếu máu sẵn, mất nhanh, bệnh tim** sốc sớm hơn. **Không học “mất đúng 1 lít mới sốc”.**'] : ['happy', 'Bốn mẹ khác nhau. Kéo thanh **🩸 Lượng máu mất** — ai sốc trước? 👆']
 });
 kit('bs-mach', {
-  init: () => ({ sel: '', seen: '' }), ui: () => [], after: (s, k) => { if (k === 'sel') markSeen(s, s.sel); }, goal: s => ['dau', 'sot', 'lo', 'mau'].every(k => seen(s, k)),
+  init: () => ({ sel: 'dau', xt: false, seen: '' }), ui: () => [{ t: 'seg', k: 'sel', opts: [['dau', '😣 Đau'], ['sot', '🌡️ Sốt'], ['lo', '😰 Lo'], ['mau', '🩸 Mất máu']] }, { t: 'tog', k: 'xt', label: '✅ Xử trí nguyên nhân' }],
+  after: s => { if (s.xt) markSeen(s, s.sel); }, goal: s => ['dau', 'sot', 'lo', 'mau'].every(k => seen(s, k)),
   draw: s => {
-    const M = { dau: ['😣 Đau', 'da ấm · hết đau → mạch giảm', false], sot: ['🌡️ Sốt', 'da nóng · hạ sốt → mạch giảm', false], lo: ['😰 Lo', 'trấn an → mạch giảm', false], mau: ['🩸 Mất máu', 'mạch TĂNG DẦN · da lạnh · máu vẫn chảy', true] };
-    let o = T(285, 44, 'Mạch 118 l/ph — vì sao?', { s: 16 });
-    o += Object.entries(M).map(([k, [a, b, bad]], i) => { const x = 20 + (i % 2) * 268, y = 62 + Math.floor(i / 2) * 136, on = s.sel === k, sn = seen(s, k);
-      return `<g class="tap" data-set="sel=${k}">${card(x, y, 262, 126, on ? (bad ? '#ffd0d8' : C.mint) : '#fff', on ? C.soft : sn ? C.mintD : C.grid)}${T(x + 131, y + 40, a, { s: 18 })}${sn ? `<g class="${on ? 'fadein' : ''}">${T(x + 131, y + 74, b.split(' · ')[0], { s: 13, c: bad ? C.redD : C.mute })}${T(x + 131, y + 94, b.split(' · ').slice(1).join(' · '), { s: 13, c: bad ? C.redD : C.mute })}</g>` : T(x + 131, y + 84, '👆 chạm', { s: 13, c: C.soft })}</g>`; }).join('');
+    const bleed = s.sel === 'mau', W = woman(42, 34, 284), hr = t => { const base = 118 + (bleed ? .35 * t : 0); if (!s.xt || t < 30) return base; return bleed ? 118 + .35 * 30 + .75 * (t - 30) : 84 + (base - 84) * Math.exp(-(t - 30) / 7); };
+    const ICON = { dau: ['😣', ...W.p(148, 470)], sot: ['🌡️', ...W.p(148, 40)], lo: ['😰', ...W.p(148, 125)], mau: ['🩸', ...W.p(150, 566)] };
+    let o = card(20, 20, 170, 316, '#fffdfa') + W.svg + Object.entries(ICON).map(([k, [ic, x, y]]) => `<g opacity="${s.sel === k ? 1 : .3}"><circle cx="${x}" cy="${y}" r="${s.sel === k ? 17 : 11}" fill="#fff" stroke="${s.sel === k ? C.red : C.grid}" stroke-width="2" ${s.sel === k ? 'class="pulse"' : ''}/>${T(x, y + (s.sel === k ? 7 : 5), ic, { s: s.sel === k ? 20 : 13 })}</g>`).join('');
+    const P = ZS.plot({ x: 232, y: 70, w: 296, h: 170, xr: [0, 60], yr: [60, 150], xt: 4, yt: 3, xl: 'phút', title: 'Mạch (l/ph)', curves: [{ f: hr, col: bleed ? C.red : C.cap, w: 3.6 }], hl: [{ y: 100, label: '100', c: C.amber, lpos: 'left' }], vl: s.xt ? [{ x: 30, label: 'xử trí', c: C.green, dash: true }] : [] });
+    o += card(202, 20, 348, 316) + P.svg;
+    const done = s.xt, drop = done && !bleed;
+    o += verdict(222, 262, 310, drop, !done ? 'Mạch 118 — vì sao?' : drop ? 'Hết nguyên nhân → mạch GIẢM' : 'Mạch vẫn TĂNG → nghĩ MẤT MÁU', !done ? 'bật ✅ xử trí nguyên nhân ở trên' : drop ? 'đau, sốt, lo: mạch nhanh nhưng đáp ứng' : 'da lạnh · máu vẫn chảy · không đáp ứng');
     return o;
   },
-  say: s => ['dau', 'sot', 'lo', 'mau'].every(k => seen(s, k)) ? ['worry', 'Mạch nhanh **đơn độc** có thể do đau, sốt, lo. Đọc **toàn cảnh** và **theo thời gian**: mạch tăng dần + da lạnh + máu chảy → sốc.'] : ['happy', 'Mạch nhanh có nhiều lý do. Chạm **cả 4 thẻ** 👆']
+  say: s => ['dau', 'sot', 'lo', 'mau'].every(k => seen(s, k)) ? ['worry', 'Mạch nhanh **đơn độc** có thể do đau, sốt, lo. Đọc **toàn cảnh** và **theo thời gian**: mạch tăng dần + da lạnh + máu chảy → sốc.'] : ['happy', 'Mạch 118 có nhiều lý do. Chọn từng nguyên nhân, bật **✅ Xử trí** — mạch có giảm không? Xem **cả 4** 👆']
 });
 const KEO = [['🧪', 'Toan chuyển hóa', 1], ['🩸', 'Rối loạn đông máu', 2.5], ['🫘', 'Suy thận', 3.5], ['🧠', 'Tuyến yên → Sheehan', 5]];
 kit('bs-keo', {
@@ -111,13 +115,7 @@ kit('bs-nguoc', {
   },
   say: s => s.t >= 50 ? ['wow', 'Hai số đi **ngược chiều** (mạch ↑, HA ↓) nên SI vượt ngưỡng **sớm hơn** hẳn so với chờ HA tụt.'] : ['happy', 'Kéo thanh **⏱ Thời gian** — nhìn hai đường tách nhau 👆']
 });
-const SIQ = [['Quy SI ra chính xác % máu mất', false], ['SI thấp → yên tâm, không chảy máu nguy hiểm', false], ['SI cao → đánh giá khẩn theo toàn cảnh', true], ['Chờ SI cao hơn nữa mới hành động', false]];
-kit('bs-siq', {
-  init: () => ({ seen: '' }), ui: () => [], after: (s, k) => markSeen(s, k), goal: s => SIQ.every((_, i) => seen(s, 'q' + i)),
-  draw: s => T(285, 44, 'Đúng hay sai? Chạm từng thẻ', { s: 15 }) + SIQ.map(([t, ok], i) => { const x = 20 + (i % 2) * 268, y = 60 + Math.floor(i / 2) * 136, sn = seen(s, 'q' + i);
-    return `<g class="tap" data-set="!q${i}">${card(x, y, 262, 126, sn ? (ok ? C.mint : '#ffd0d8') : '#fff', sn ? C.soft : C.grid)}${ZS.wrap(t, 26).map((l, j) => T(x + 131, y + 38 + j * 19, l, { s: 14 })).join('')}${sn ? `<g class="fadein">${T(x + 131, y + 104, ok ? '✓ ĐÚNG' : '✗ SAI', { s: 16, c: ok ? C.green : C.redD })}</g>` : T(x + 131, y + 104, '👆', { s: 16, c: C.soft })}</g>`; }).join('') + T(285, 334, 'thuốc, bệnh nền, loạn nhịp, tăng HA nền làm SI khó đọc', { s: 12, c: C.mute }),
-  say: s => SIQ.every((_, i) => seen(s, 'q' + i)) ? ['worry', 'SI là **đèn báo**, không là máy chẩn đoán: không quy ra % máu mất, SI thấp **không loại trừ** chảy máu nguy hiểm, **không chờ** SI xấu thêm.'] : ['happy', 'SI dùng sao cho đúng? Chạm **4 thẻ** để lật đáp án 👆']
-});
+ZS.BK.tfKit('bs-siq', [['Quy SI ra chính xác % máu mất', false, 'SI chỉ là dấu báo động; không quy ra % máu mất chính xác.'], ['SI thấp → yên tâm, không chảy máu nguy hiểm', false, 'SI thấp không loại trừ chảy máu nguy hiểm (thuốc, bệnh nền, bù trừ sớm).'], ['SI cao → đánh giá khẩn theo toàn cảnh', true, 'SI vượt ngưỡng là lý do đánh giá khẩn cả lâm sàng, không là chẩn đoán.'], ['Chờ SI cao hơn nữa mới hành động', false, 'Không chờ SI xấu thêm: SI đã vượt ngưỡng là hành động ngay.']], 'SI là **đèn báo**, không là máy chẩn đoán: không quy ra % máu mất, SI thấp **không loại trừ** chảy máu nguy hiểm, **không chờ** SI xấu thêm.');
 B['shock-index'] = [
   { t: 'SI: một phép chia', kit: 'bs-si' },
   { t: 'Hai số đi ngược chiều', kit: 'bs-nguoc' },
@@ -129,12 +127,12 @@ const GR = [['I', '≈ 15%', ['mạch, HA có thể bình thường', 'hạ áp 
 kit('bs-do', {
   init: () => ({ p: 10 }), ui: () => [{ t: 'range', k: 'p', label: '🩸 Máu mất (minh họa)', min: 10, max: 45, step: 5, unit: '%' }], goal: s => s.p >= 40,
   draw: s => {
-    const g = s.p >= 40 ? 3 : s.p >= 30 ? 2 : s.p >= 20 ? 1 : 0, W = woman(36, 20, 300), hr = [90, 115, 135, 150][g], ha = ['118/76', '108/78', '84/56', '< 70'][g];
-    let o = card(20, 20, 136, 316, '#fffdfa') + W.svg + `<rect x="36" y="20" width="90" height="300" rx="10" fill="#9fb4ff" opacity="${[0, .12, .28, .45][g]}"/>` + heart(...W.p(150, 270), 16, hr);
+    const g = s.p >= 40 ? 3 : s.p >= 30 ? 2 : s.p >= 20 ? 1 : 0, W = woman(40, 26, 284), hr = [90, 115, 135, 150][g], ha = ['118/76', '108/78', '84/56', '< 70'][g];
+    let o = card(20, 20, 136, 316, '#fffdfa') + W.svg + (g ? `<g opacity="${[0, .25, .6, .95][g]}" filter="url(#lanh)">${pic('sv-phu-nu.png', 40, 26, 297 * 284 / 1060, 284)}</g>` : '') + heart(...W.p(150, 270), 16, hr);
     o += [W.p(40, 560), W.p(255, 560)].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="10" fill="#7aa6e6" opacity="${[0, .4, .6, .8][g]}"/>`).join('');
     o += GR.map(([n, pct, sg], i) => { const y = 24 + i * 78, on = i === g;
       return `<rect x="168" y="${y}" width="382" height="70" rx="14" fill="${on ? ['#e8f8f0', '#fff3c4', '#ffe0cc', '#ffd0d8'][i] : '#fff'}" stroke="${on ? C.soft : C.grid}" stroke-width="${on ? 1.6 : 1}"/>` + T(196, y + 44, n, { s: 26, c: on ? C.redD : C.grid }) + T(232, y + 28, pct, { a: 'start', s: 13.5, c: on ? C.ink : C.mute }) + T(232, y + 50, sg.join(' · '), { a: 'start', s: 12.5, c: on ? C.ink : C.mute }); }).join('');
-    o += `<rect x="168" y="${24 + g * 78}" width="382" height="70" rx="14" fill="none" stroke="${C.red}" stroke-width="2.4">${ZS.tw('y', s._p ? 24 + (s._p.p >= 40 ? 3 : s._p.p >= 30 ? 2 : s._p.p >= 20 ? 1 : 0) * 78 : null, 24 + g * 78, .4)}</rect>` + Th(88, 338, `${hr} · HA ${ha}`, { s: 12, c: g >= 2 ? C.redD : C.ink });
+    o += `<rect x="168" y="${24 + g * 78}" width="382" height="70" rx="14" fill="none" stroke="${C.red}" stroke-width="2.4">${ZS.tw('y', s._p ? 24 + (s._p.p >= 40 ? 3 : s._p.p >= 30 ? 2 : s._p.p >= 20 ? 1 : 0) * 78 : null, 24 + g * 78, .4)}</rect>` + Th(88, 328, `${hr} · HA ${ha}`, { s: 12, c: g >= 2 ? C.redD : C.ink });
     return o;
   },
   say: s => s.p >= 40 ? ['ouch', 'Độ IV: **trụy tuần hoàn**. Bảng cho thấy diễn tiến **bù → mất bù**; con số % chỉ là **minh họa**, không là công thức cho từng mẹ.'] : ['happy', 'Kéo thanh **🩸 Máu mất** — nhìn mẹ và dòng sáng trong bảng 4 mức 👆']
@@ -143,8 +141,8 @@ kit('bs-tuthe', {
   init: () => ({ ngoi: false }), ui: () => [{ t: 'tog', k: 'ngoi', label: '🪑 Cho mẹ ngồi dậy' }], goal: s => s.ngoi,
   draw: s => {
     const n = s.ngoi;
-    let o = card(20, 20, 260, 316, '#fffdfa') + T(150, 52, n ? 'Ngồi dậy' : 'Nằm', { s: 16 });
-    o += n ? `<g class="fadein">${pic('sv-phu-nu.png', 118, 64, 66, 236)}</g>` : `<g transform="rotate(-90 150 200)">${pic('sv-phu-nu.png', 117, 82, 66, 236)}</g>`;
+    let o = card(20, 20, 260, 316, '#fffdfa') + T(150, 52, n ? 'Ngồi dậy (đầu cao)' : 'Nằm', { s: 16 });
+    o += n ? `<g class="fadein">${ZS.BK.sitPic(112, 66, 236)}</g>` : `<g transform="rotate(-90 150 200)">${pic('sv-phu-nu.png', 117, 82, 66, 236)}</g><rect x="156" y="170" width="116" height="64" rx="12" fill="#ebe4ff" opacity=".8" stroke="#c3b0fb"/>`;
     o += card(292, 20, 258, 316) + T(421, 52, 'Độ I: máu mất ≈ 15%', { s: 14, c: C.mute });
     o += vital(312, 72, 'Mạch', n ? 118 : 92, n ? '#ffb15c' : '#7ee2b8', 218) + vital(312, 128, 'Huyết áp', n ? '96/62' : '116/74', n ? '#ffb15c' : '#7ee2b8', 218);
     o += n ? ZS.fade(verdict(312, 196, 218, false, 'Hạ áp tư thế', 'mạch ↑ HA ↓ khi đổi tư thế') + T(421, 300, 'dấu sớm khi nằm còn “bình thường”', { s: 12, c: C.mute }), ZS.fresh(s, x => x.ngoi)) : T(421, 230, 'nằm: trông bình thường', { s: 14, c: C.green });
@@ -153,15 +151,17 @@ kit('bs-tuthe', {
   say: s => s.ngoi ? ['worry', 'Độ I: nằm thì mạch, HA còn bình thường; **ngồi dậy** thì mạch vọt, HA tụt — **hạ áp tư thế** là dấu sớm.'] : ['happy', 'Mẹ mất máu ít, nằm trông ổn. Bấm **🪑 Cho mẹ ngồi dậy** 👆']
 });
 kit('bs-som', {
-  init: () => ({ thieu: false }), ui: () => [{ t: 'tog', k: 'thieu', label: '🫥 Mẹ thiếu máu sẵn (Hb nền thấp)' }], goal: s => s.thieu,
+  init: () => ({ hb: 12 }), ui: () => [], goal: s => s.hb <= 9,
   draw: s => {
-    const g2 = s.thieu ? 2 : 1;
+    const lv = Math.max(0, Math.min(1, (12 - s.hb) / 6)), g = s.hb <= 9 ? 2 : 1;
     let o = card(20, 20, 530, 316, '#fffdfa') + T(285, 52, 'Cùng mất ≈ 800 mL', { s: 16 });
-    o += [['Mẹ A: Hb nền bình thường', 1], ['Mẹ B: ' + (s.thieu ? 'thiếu máu sẵn' : 'Hb nền bình thường'), g2]].map(([t, g], i) => { const x = 46 + i * 254;
-      return `${pic('sv-phu-nu.png', x + 70, 70, 60, 214)}<rect x="${x + 70}" y="70" width="60" height="214" fill="#9fb4ff" opacity="${g === 2 ? .35 : .1}" rx="8"/>` + T(x + 100, 304, t, { s: 13.5 }) + `<rect x="${x + 150}" y="120" width="70" height="56" rx="12" fill="${g === 2 ? '#ffe0cc' : '#fff3c4'}"/>` + T(x + 185, 158, 'Độ ' + ['I', 'II', 'III'][g], { s: 18, c: g === 2 ? C.redD : '#b8860b' }); }).join('');
+    [['Mẹ A: Hb nền thấp dần', 46, lv, g], ['Mẹ B: Hb nền bình thường (≈ 12)', 300, .04, 1]].forEach(([t, x, tint, gg], i) => {
+      o += ZS.BK.tintPic('sv-phu-nu.png', x + 70, 66, 53, 190, tint, 'lanh') + T(x + 96, 272, t, { s: i ? 12 : 13.5 }) + `<rect x="${x + 150}" y="110" width="70" height="56" rx="12" fill="${gg === 2 ? '#ffe0cc' : '#fff3c4'}"/>` + T(x + 185, 148, 'Độ ' + ['I', 'II', 'III'][gg], { s: 18, c: gg === 2 ? C.redD : '#b8860b' });
+    });
+    o += ZS.BK.scrub('hb', s.hb, 6, 13, 1, ' g/dL', 142, 312) + T(142, 288, 'kéo Hb nền mẹ A', { s: 11, c: C.mute });
     return o;
   },
-  say: s => s.thieu ? ['worry', 'Thiếu máu sẵn hoặc mất **nhanh** → xấu ở lượng **thấp hơn bảng**. Đọc toàn cảnh, **không đợi độ III** mới hành động.'] : ['happy', 'Hai mẹ mất máu như nhau. Bấm **🫥 Mẹ thiếu máu sẵn** cho mẹ B 👆']
+  say: s => s.hb <= 9 ? ['worry', 'Thiếu máu sẵn hoặc mất **nhanh** → xấu ở lượng **thấp hơn bảng**. Đọc toàn cảnh, **không đợi độ III** mới hành động.'] : ['happy', 'Hai mẹ mất máu như nhau. Rê ngang số **Hb của mẹ A** xuống thấp 👆']
 });
 B['phan-do-soc'] = [
   { t: 'Bốn mức: từ bù tới trụy', kit: 'bs-do', cr: 'Người: ' + SV },
@@ -182,26 +182,26 @@ kit('bs-doi', {
   },
   say: s => TEAM.every(([k]) => seen(s, k)) ? ['happy', 'Báo **cấp cứu sản khoa**: sản khoa cao cấp, gây mê hồi sức, ngân hàng máu, hồi sức sơ sinh (theo tình huống) và **một người ghi chép**.'] : ['happy', 'Mẹ đang sốc. Gọi **đủ người** — bật từng thẻ 👆']
 });
-const ABC = [['a', 148, 88, 'A · Đường thở', 'thông, an toàn'], ['b', 150, 240, 'B · Thở', 'oxy / thông khí theo mức thiếu oxy'], ['c', 150, 290, 'C · Tuần hoàn', 'mạch, HA, tưới máu, máu đang mất']];
+const ABC = [['a', 148, 100, 'A · Đường thở', 'thông, an toàn'], ['b', 215, 225, 'B · Thở', 'oxy / thông khí theo mức thiếu oxy'], ['c', 178, 292, 'C · Tuần hoàn', 'mạch, HA, tưới máu, máu đang mất']];
 kit('bs-abc', {
-  init: () => ({ seen: '' }), ui: () => [], after: (s, k) => markSeen(s, k), goal: s => ABC.every(([k]) => seen(s, k)),
+  init: () => ({ sel: '', seen: '' }), ui: () => [{ t: 'seg', k: 'sel', opts: ABC.map(([k, , , a]) => [k, a]) }], after: s => markSeen(s, s.sel), goal: s => ABC.every(([k]) => seen(s, k)),
   draw: s => {
     const W = woman(50);
     let o = card(20, 20, 160, 316, '#fffdfa') + W.svg;
-    o += ABC.map(([k, X, Y], i) => { const [x, y] = W.p(X, Y); return seen(s, k) ? `<circle cx="${x}" cy="${y}" r="9" fill="${C.green}"/><path d="M${x} ${y} L206 ${70 + i * 90}" stroke="${C.soft}" stroke-width="1.2" stroke-dasharray="3 3"/>` : tap('!' + k, x, y, 15, 15); }).join('');
-    o += card(194, 20, 356, 316) + ABC.map(([k, , , a, b], i) => seen(s, k) ? ZS.fade(T(214, 74 + i * 90, a, { a: 'start', s: 17 }) + T(214, 98 + i * 90, b, { a: 'start', s: 13, c: C.mute }), ZS.fresh(s, z => seen(z, k))) : T(214, 86 + i * 90, ['A', 'B', 'C'][i] + ' · chạm trên người mẹ', { a: 'start', s: 14, c: C.grid })).join('');
+    o += ABC.map(([k, X, Y]) => { const [x, y] = W.p(X, Y), on = s.sel === k; return seen(s, k) ? `<circle cx="${x}" cy="${y}" r="${on ? 13 : 8}" fill="${C.green}" ${on ? 'class="pulse"' : ''}/>` : ''; }).join('');
+    o += card(194, 20, 356, 316) + ABC.map(([k, , , a, b], i) => seen(s, k) ? `<g class="${s.sel === k ? 'fadein' : ''}"><rect x="204" y="${56 + i * 90}" width="336" height="76" rx="14" fill="${s.sel === k ? C.mint : '#fff'}" stroke="${s.sel === k ? C.mintD : C.grid}"/>${T(222, 90 + i * 90, a, { a: 'start', s: 17 })}${T(222, 114 + i * 90, b, { a: 'start', s: 13, c: C.mute })}</g>` : T(222, 100 + i * 90, ['A', 'B', 'C'][i] + ' · chọn nút ở trên', { a: 'start', s: 14, c: C.grid })).join('');
     o += T(372, 322, 'không tự động đặt nội khí quản cho mọi ca', { s: 12, c: C.redD });
     return o;
   },
-  say: s => ABC.every(([k]) => seen(s, k)) ? ['happy', 'Đánh giá **A–B–C**; oxy/thông khí **theo mức thiếu oxy và độ nặng** — không tự động đặt nội khí quản cho mọi ca.'] : ['happy', 'Chạm **3 vòng** trên người mẹ: miệng, ngực, tim 👆']
+  say: s => ABC.every(([k]) => seen(s, k)) ? ['happy', 'Đánh giá **A–B–C**; oxy/thông khí **theo mức thiếu oxy và độ nặng** — không tự động đặt nội khí quản cho mọi ca.'] : ['happy', 'Bấm lần lượt **A · B · C** ở trên — chấm xanh hiện đúng chỗ cần kiểm tra trên người mẹ 👆']
 });
-const LINE = [['iv1', 40, 470, '💉 Đường truyền 1', 'kim to, tĩnh mạch ngoại vi'], ['iv2', 255, 470, '💉 Đường truyền 2', 'kim to, tay bên kia'], ['xn', 60, 420, '🧪 Lấy máu cùng lúc', 'xét nghiệm + nhóm máu'], ['dich', 150, 330, '💧 Dịch tinh thể ấm', 'cầu nối, chờ máu'], ['am', 150, 640, '🧣 Giữ ấm', 'người, dịch và máu']];
+const LINE = [['iv1', 36, 500, '💉 Đường truyền 1', 'kim to, tĩnh mạch ngoại vi'], ['xn', 40, 400, '🧪 Lấy máu cùng lúc', 'xét nghiệm + nhóm máu'], ['iv2', 262, 500, '💉 Đường truyền 2', 'kim to, tay bên kia'], ['dich', -1, -1, '💧 Dịch tinh thể ấm', 'cầu nối, chờ máu'], ['am', 150, 700, '🧣 Giữ ấm', 'người, dịch và máu']];
 kit('bs-duong', {
   init: () => ({ seen: '' }), ui: () => [], after: (s, k) => markSeen(s, k), goal: s => LINE.every(([k]) => seen(s, k)),
   draw: s => {
     const W = woman(52);
-    let o = card(20, 20, 164, 316, '#fffdfa') + W.svg + (seen(s, 'am') ? `<rect x="40" y="190" width="132" height="120" rx="16" fill="${C.lav}" opacity=".75" class="fadein"/>` : '') + (seen(s, 'dich') ? pic('sv-dich-truyen.png', 120, 20, 50, 70, 'class="fadein"') : '');
-    o += LINE.map(([k, X, Y], i) => { const [x, y] = W.p(X, Y); return seen(s, k) ? `<circle cx="${x}" cy="${y}" r="7" fill="${C.cap}"/>` : tap('!' + k, x, y, 12, 12); }).join('');
+    let o = card(20, 20, 164, 316, '#fffdfa') + W.svg + (seen(s, 'am') ? `<rect x="58" y="182" width="86" height="104" rx="12" fill="${C.lav}" opacity=".7" class="fadein"/>` : '') + `<g opacity="${seen(s, 'dich') ? 1 : .35}">${pic('sv-dich-truyen.png', 138, 24, 44, 62)}</g>` + (seen(s, 'dich') ? `<path d="M160 86 Q168 150 140 ${W.p(262, 500)[1] - 6}" fill="none" stroke="#9ecdf7" stroke-width="2" class="fadein"/>` : '');
+    o += LINE.map(([k, X, Y], i) => { const [x, y] = X < 0 ? [160, 56] : W.p(X, Y); return seen(s, k) ? (X < 0 ? '' : `<circle cx="${x}" cy="${y}" r="7" fill="${C.cap}"/>`) : tap('!' + k, x, y, X < 0 ? 22 : 12, X < 0 ? 32 : 12); }).join('');
     o += card(196, 20, 354, 316) + LINE.map(([k, , , a, b], i) => seen(s, k) ? ZS.fade(T(214, 52 + i * 60, a, { a: 'start', s: 15 }) + T(214, 72 + i * 60, b, { a: 'start', s: 12.5, c: C.mute }), ZS.fresh(s, z => seen(z, k))) : T(214, 62 + i * 60, '○ chạm vòng trên người mẹ', { a: 'start', s: 13, c: C.grid })).join('');
     return o;
   },
@@ -271,15 +271,15 @@ kit('bs-ong', {
 });
 const BAG = [['hc', '#9b1c2e', 'Hồng cầu', 'mang oxy', 'Hb thấp'], ['ht', '#f2c14e', 'Huyết tương', 'yếu tố đông', 'PT/aPTT kéo dài'], ['fib', '#f7e7a6', 'Fibrinogen / tủa lạnh', 'đích ≥ 2 g/L', 'fibrinogen 1,4 g/L'], ['tc', '#f5d9a0', 'Tiểu cầu', 'khi < 50 + chảy máu vi mạch', 'tiểu cầu 40 · rỉ máu']];
 kit('bs-tui', {
-  init: () => ({ seen: '' }), ui: () => [], after: (s, k) => markSeen(s, k), goal: s => BAG.every(([k]) => seen(s, k)),
+  init: () => ({ sel: '', seen: '' }), ui: () => [{ t: 'seg', k: 'sel', opts: BAG.map(([k, , , , lab]) => [k, lab]) }], after: s => markSeen(s, s.sel), goal: s => BAG.every(([k]) => seen(s, k)),
   draw: s => {
-    let o = card(20, 20, 530, 316, '#fffdfa') + T(285, 46, 'Kết quả nào → túi nào? Chạm từng kết quả', { s: 14 });
+    let o = card(20, 20, 530, 316, '#fffdfa') + T(285, 46, 'Kết quả nào → túi nào? Chọn kết quả ở trên', { s: 14 });
     o += BAG.map(([k, col, a, b, lab], i) => { const x = 36 + i * 128, sn = seen(s, k);
-      return `<g class="tap" data-set="!${k}"><rect x="${x}" y="62" width="116" height="40" rx="12" fill="${sn ? '#ffe0e6' : '#fff'}" stroke="${sn ? C.pinkD : C.soft}" stroke-dasharray="${sn ? '' : '5 4'}"/>${T(x + 58, 87, lab, { s: 12 })}${sn ? arrow(`M${x + 58} 106 V126`, C.red, 3) : ''}<g opacity="${sn ? 1 : .35}"><rect x="${x + 22}" y="132" width="72" height="104" rx="18" fill="${col}" stroke="${C.soft}"/><rect x="${x + 50}" y="122" width="16" height="12" rx="3" fill="#ddd"/><rect x="${x + 32}" y="150" width="52" height="26" rx="6" fill="#fff" opacity=".85"/>${T(x + 58, 168, '🩸', { s: 12 })}</g>${T(x + 58, 262, a.split(' / ')[0], { s: 13.5 })}${sn ? `<g class="fadein">${T(x + 58, 284, b.length > 18 ? b.slice(0, b.indexOf(' +')) : b, { s: 12, c: C.redD })}${b.length > 18 ? T(x + 58, 300, b.slice(b.indexOf('+')), { s: 12, c: C.redD }) : ''}</g>` : ''}</g>`; }).join('');
+      return `<g class="${s.sel === k ? 'bob' : ''}"><rect x="${x}" y="62" width="116" height="40" rx="12" fill="${s.sel === k ? '#ffc2cf' : sn ? '#ffe0e6' : '#fff'}" stroke="${sn ? C.pinkD : C.soft}" stroke-dasharray="${sn ? '' : '5 4'}"/>${T(x + 58, 87, lab, { s: 12 })}${sn ? arrow(`M${x + 58} 106 V126`, C.red, 3) : ''}<g opacity="${sn ? 1 : .35}"><rect x="${x + 22}" y="132" width="72" height="104" rx="18" fill="${col}" stroke="${C.soft}"/><rect x="${x + 50}" y="122" width="16" height="12" rx="3" fill="#ddd"/><rect x="${x + 32}" y="150" width="52" height="26" rx="6" fill="#fff" opacity=".85"/>${T(x + 58, 168, '🩸', { s: 12 })}</g>${T(x + 58, 262, a.split(' / ')[0], { s: 13.5 })}${sn ? `<g class="fadein">${T(x + 58, 284, b.length > 18 ? b.slice(0, b.indexOf(' +')) : b, { s: 12, c: C.redD })}${b.length > 18 ? T(x + 58, 300, b.slice(b.indexOf('+')), { s: 12, c: C.redD }) : ''}</g>` : ''}</g>`; }).join('');
     o += T(285, 330, 'điều chỉnh theo xét nghiệm & quy trình — không một tỉ lệ cố định cho mọi người', { s: 11.5, c: C.mute });
     return o;
   },
-  say: s => BAG.every(([k]) => seen(s, k)) ? ['happy', '**Hồng cầu** mang oxy; **huyết tương, fibrinogen, tiểu cầu** sửa đông cầm máu. WHO 2025: fibrinogen **≥ 2 g/L**; tiểu cầu **< 50** + chảy máu vi mạch → cân nhắc.'] : ['happy', 'Mỗi chế phẩm sửa **một thiếu hụt**. Chạm **từng kết quả** để nối với túi 👆']
+  say: s => BAG.every(([k]) => seen(s, k)) ? ['happy', '**Hồng cầu** mang oxy; **huyết tương, fibrinogen, tiểu cầu** sửa đông cầm máu. WHO 2025: fibrinogen **≥ 2 g/L**; tiểu cầu **< 50** + chảy máu vi mạch → cân nhắc.'] : ['happy', 'Mỗi chế phẩm sửa **một thiếu hụt**. Chọn **từng kết quả** ở trên để nối với túi 👆']
 });
 B['xet-nghiem-truyen-mau'] = [
   { t: 'Hb đầu tiên có thể chưa thấp', kit: 'bs-hb' },
@@ -319,13 +319,7 @@ kit('bs-chai', {
   },
   say: s => FL.every(([k]) => seen(s, k)) ? ['happy', 'Cầu nối: **tinh thể đẳng trương**. **Glucose** không dùng hồi sức thể tích; **dịch keo** không thay yếu tố đông. Giải quyết thật: **máu & cầm máu**.'] : ['happy', 'Chạm **từng chai** — nhìn dịch ở lại lòng mạch hay thoát ra 👆']
 });
-const MYTH = [['Vận mạch thay được bù thể tích', false], ['Corticoid, bicarbonate cho mọi ca', false], ['Lấy CVP làm đích duy nhất', false], ['Giữ ấm người, dịch và máu', true], ['Theo dõi điện giải khi truyền lớn', true], ['Bù đúng thành phần đang thiếu', true]];
-kit('bs-goi', {
-  init: () => ({ seen: '' }), ui: () => [], after: (s, k) => markSeen(s, k), goal: s => MYTH.every((_, i) => seen(s, 'm' + i)),
-  draw: s => T(285, 40, 'Nên hay không nên? Chạm từng thẻ', { s: 15 }) + MYTH.map(([t, ok], i) => { const x = 20 + (i % 3) * 178, y = 56 + Math.floor(i / 3) * 140, sn = seen(s, 'm' + i);
-    return `<g class="tap" data-set="!m${i}">${card(x, y, 170, 130, sn ? (ok ? C.mint : '#ffd0d8') : '#fff', sn ? C.soft : C.grid)}${ZS.wrap(t, 16).map((l, j) => T(x + 85, y + 36 + j * 19, l, { s: 13.5 })).join('')}${sn ? `<g class="fadein">${T(x + 85, y + 112, ok ? '✓ NÊN' : '✗ KHÔNG', { s: 15, c: ok ? C.green : C.redD })}</g>` : T(x + 85, y + 112, '👆', { s: 15, c: C.soft })}</g>`; }).join(''),
-  say: s => MYTH.every((_, i) => seen(s, 'm' + i)) ? ['worry', 'Không có **“gói thuốc”** cho mọi sốc mất máu: vận mạch **không thay** cầm máu & thể tích. Giữ ấm, theo dõi điện giải, bù **đúng thứ đang thiếu**.'] : ['happy', 'Chạm **6 thẻ** để lật đáp án 👆']
-});
+ZS.BK.tfKit('bs-goi', [['Vận mạch thay được bù thể tích', false, 'Vận mạch không thay cầm máu và bù thể tích/máu.'], ['Corticoid, bicarbonate cho mọi ca', false, 'Không có gói thuốc cho mọi sốc mất máu; chỉ định theo tình huống.'], ['Lấy CVP làm đích duy nhất', false, 'Một con số đơn độc không đủ: đọc tưới máu, sinh hiệu, nước tiểu, lactate.'], ['Giữ ấm người, dịch và máu', true, 'Hạ thân nhiệt làm rối loạn đông máu nặng thêm.'], ['Theo dõi điện giải khi truyền lớn', true, 'Truyền khối lượng lớn dễ rối loạn điện giải (kali, canxi…).'], ['Bù đúng thành phần đang thiếu', true, 'Hồng cầu mang oxy; huyết tương, fibrinogen, tiểu cầu sửa rối loạn đông.']], 'Không có **“gói thuốc”** cho mọi sốc mất máu: vận mạch **không thay** cầm máu & thể tích. Giữ ấm, theo dõi điện giải, bù **đúng thứ đang thiếu**.', null, { ask: 'Nên hay không nên?' });
 B['vong-xoan-va-dich'] = [
   { t: 'Tam giác chết: lạnh, toan, đông kém', kit: 'bs-tamgiac' },
   { t: 'Dịch nào làm cầu nối?', kit: 'bs-chai', cr: 'Chai dịch: ' + SV },
@@ -349,8 +343,8 @@ kit('bs-kin2', {
   init: () => ({ t: 0, bung: false }), ui: () => [{ t: 'range', k: 't', label: '⏱ Theo dõi', min: 0, max: 60, step: 10, unit: ' phút' }, { t: 'tog', k: 'bung', label: '🔎 Khám bụng' }], goal: s => s.bung && s.t >= 30,
   draw: s => {
     const f = s.t / 60;
-    let o = card(20, 20, 290, 316, '#fffdfa') + `<svg x="24" y="22" width="282" height="312" viewBox="120 200 380 420" preserveAspectRatio="xMidYMid slice"><image href="${ZS.BK.I}sv-mang-thai.png" width="560" height="966"/></svg>`;
-    if (s.bung) o += ZS.fade(`<ellipse cx="90" cy="200" rx="${30 + 26 * f}" ry="${18 + 14 * f}" fill="${C.red}" opacity=".6"/>` + call(90, 200, 160, 312, 'máu trong ổ bụng', C.redD, 'middle', 13), ZS.fresh(s, x => x.bung));
+    let o = card(20, 20, 290, 316, '#fffdfa') + `<svg x="24" y="22" width="282" height="312" viewBox="190 240 340 540" preserveAspectRatio="xMidYMid meet"><image href="${ZS.BK.I}sv-mang-thai.png" width="560" height="966"/></svg>`;
+    if (s.bung) o += ZS.fade(`<ellipse cx="62" cy="262" rx="${14 + 12 * f}" ry="${9 + 10 * f}" fill="${C.red}" opacity=".65"/>` + Th(54, 228, 'máu tự do', { s: 11.5, c: C.redD }) + Th(54, 241, 'trong ổ bụng', { s: 11.5, c: C.redD }), ZS.fresh(s, x => x.bung));
     o += card(322, 20, 228, 316) + T(436, 50, 'Máu ra âm đạo', { s: 13, c: C.mute }) + ZS.bar(346, 60, 180, 80 - 70 * f, C.red, '', { h: 12 }) + T(436, 96, f > .3 ? 'ÍT LẠI ↓' : 'nhiều', { s: 15, c: f > .3 ? C.green : C.redD });
     o += vital(342, 116, 'Mạch', Math.round(118 + 20 * f), '#ff8fa8', 188) + vital(342, 170, 'Tri giác', f > .3 ? 'lơ mơ' : 'tỉnh', f > .3 ? '#ff6b7a' : '#7ee2b8', 188) + vital(342, 224, 'Da', f > .3 ? 'lạnh' : 'mát', f > .3 ? '#ff6b7a' : '#ffb15c', 188);
     o += T(436, 296, f > .3 ? 'không khớp nhau!' : '', { s: 14, c: C.redD });

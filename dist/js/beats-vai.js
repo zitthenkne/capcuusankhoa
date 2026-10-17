@@ -25,16 +25,28 @@ const credHV = 'Hariadhi, Wikimedia Commons · CC BY-SA 4.0';
 
 // ═════════ BÀI 1 · Đầu ra rồi, vai vẫn có thể mắc
 kit('bv-rua', {
-  init: () => ({ pull: false }), ui: () => [{ t: 'tog', k: 'pull', label: '🤲 Kéo nhẹ đầu theo trục' }], goal: s => s.pull,
+  init: () => ({ keo: 0 }), ui: () => [{ t: 'range', k: 'keo', label: '🤲 Kéo nhẹ đầu theo trục', min: 0, max: 100, step: 10, unit: '%' }], goal: s => s.keo >= 70,
   draw: s => {
+    const f = s.keo / 100, hot = f >= .7;
     let o = KV(false);
-    if (s.pull) { const nw = ZS.fresh(s, x => x.pull); o += ZS.drawIn(arrow(`M${HD[0] + 30} ${HD[1] + 26} l30 14`, C.mute, 4), .4) + `<g class="bob">${ZS.drawIn(arrow(`M${HD[0] + 58} ${HD[1] + 54} q-30 8 -44 -10`, C.red, 4), .9)}</g>` + ZS.fade(Th(HD[0] + 4, HD[1] + 76, '🐢 đầu rụt lại', { c: C.redD }) + `<g class="shake-once">${lockIcon(SH[0] - 30, SH[1] - 10, false)}</g>` + call(SH[0], SH[1], 250, 44, 'vai không ra', C.redD), nw); }
-    o += card(372, 20, 178, 310) + T(461, 54, 'Kéo nhẹ thường…', { s: 15 });
-    o += T(461, 100, 'vai có ra không?', { s: 13, c: C.mute }) + T(461, 150, s.pull ? '✗' : '?', { s: 44, c: s.pull ? C.redD : C.grid });
-    if (s.pull) o += `<rect x="388" y="200" width="146" height="70" rx="16" fill="#ffd0d8"/>` + T(461, 232, 'KẸT VAI', { s: 22, c: C.redD }) + T(461, 254, 'gọi to ngay!', { s: 13, c: C.redD });
+    if (f > 0) {
+      const hx = HD[0] + 16 + 24 * Math.min(f, .4), hy = HD[1] + 16 + 12 * Math.min(f, .4);
+      o += arrow(`M${HD[0] + 16} ${HD[1] + 16} L${hx + 28} ${hy + 14}`, C.mute, 3 + 2 * f);
+      if (hot) {
+        o += `<g class="bob">${arrow(`M${HD[0] + 62} ${HD[1] + 54} q-32 8 -46 -10`, C.red, 5)}</g>`;
+        o += Th(HD[0] + 4, HD[1] + 76, '🐢 đầu rụt lại sát TSM', { c: C.redD });
+        o += `<g class="shake-once">${lockIcon(SH[0] - 30, SH[1] - 10, false)}</g>` + call(SH[0], SH[1], 250, 44, 'vai mắc sau khớp vệ', C.redD);
+      }
+    }
+    o += card(372, 20, 178, 310) + T(461, 52, 'Kéo theo trục…', { s: 15 });
+    o += T(461, 84, 'lực kéo: ' + s.keo + '%', { s: 13, c: hot ? C.redD : C.mute });
+    o += ZS.bar(392, 98, 138, s.keo, hot ? C.red : C.amber, '', { h: 12 });
+    o += T(461, 148, hot ? '🐢 Thụt lùi' : f > 0 ? 'Căng khớp vệ' : 'Chờ kéo nhẹ', { s: 14, c: hot ? C.redD : C.ink });
+    o += T(461, 176, hot ? '✗ vai không ra' : 'vai có ra?', { s: 13, c: hot ? C.redD : C.mute });
+    if (hot) o += `<rect x="388" y="210" width="146" height="74" rx="16" fill="#ffd0d8"/>` + T(461, 238, 'KẸT VAI!', { s: 21, c: C.redD }) + T(461, 262, 'ngừng kéo · gọi to', { s: 13, c: C.redD });
     return o;
   },
-  say: s => s.pull ? ['worry', 'Vai **không ra**, đầu còn **rụt lại** sát tầng sinh môn (**dấu con rùa 🐢**). Kéo nhẹ thường không ra = **kẹt vai**.'] : ['happy', 'Đầu bé đã **ra ngoài** rồi. Bấm **🤲 Kéo nhẹ đầu theo trục** xem vai có theo ra không 👆']
+  say: s => s.keo >= 70 ? ['worry', 'Vai **không ra**, đầu còn **rụt lại** sát tầng sinh môn (**dấu con rùa 🐢**). Kéo nhẹ không ra = **kẹt vai**, ngừng kéo ngay!'] : ['happy', 'Đầu bé đã **ra ngoài** rồi. Kéo thanh **🤲 Kéo nhẹ đầu theo trục** xem vai có theo ra không 👆']
 });
 kit('bv-cho', {
   init: () => ({ pick: '' }), ui: () => [], goal: s => s.pick === 'vai',
@@ -50,11 +62,13 @@ kit('bv-cho', {
   say: s => s.pick === 'vai' ? ['wow', 'Đúng! **Vai trước** mắc sau **khớp vệ** (xương mu). Hiếm hơn: **vai sau** mắc ở **mỏm nhô**.'] : s.pick === 'dau' ? ['worry', 'Đầu đã ra ngoài rồi — chỗ mắc nằm **bên trong**, ngay sau xương mu.'] : s.pick === 'bung' ? ['worry', 'Thân bé còn trong tử cung nhưng không mắc ở đó. Tìm chỗ **xương chặn vai** nha.'] : ['happy', 'Đầu đã ra mà vai không ra. Vai bé **mắc ở đâu**? Chạm vào hình 👆']
 });
 kit('bv-keo', {
-  init: () => ({ f: 0 }), ui: () => [{ t: 'range', k: 'f', label: '💪 Lực kéo đầu', min: 0, max: 100, step: 10, unit: '%' }], goal: s => s.f >= 70,
+  init: () => ({ f: 0, dx: HD[0] + 14, dy: HD[1] + 16 }), ui: () => [], after: (s, k) => { if (k === 'dx' || k === 'dy') s.f = Math.max(0, Math.min(100, Math.round(100 * (s.dx - (HD[0] + 14)) / 56 / 10) * 10)); }, goal: s => s.f >= 70,
   draw: s => {
     const f = s.f / 100, col = f > .55 ? C.red : f > .25 ? C.amber : '#e5b800';
     let o = KV(false);
-    if (f) o += arrow(`M${HD[0] + 28} ${HD[1] + 24} l${18 + 34 * f} ${8 + 15 * f}`, C.red, 4 + 3 * f);
+    const hx = HD[0] + 14 + 56 * f, hy = HD[1] + 16 + 26 * f;
+    if (f) o += `<path d="M${HD[0] + 14} ${HD[1] + 16} L${hx} ${hy}" stroke="${C.red}" stroke-width="${3 + 4 * f}" stroke-linecap="round" opacity=".8"/>`;
+    o += ZS.BK.drag('d', hx, hy, 10, '', [HD[0] + 14, HD[1] + 16, HD[0] + 70, HD[1] + 42], C.red) + (f ? '' : Th(HD[0] + 30, HD[1] + 58, 'kéo đầu →', { s: 12.5, c: C.redD }));
     o += [0, 1, 2, 3].map(i => `<path d="M${SH[0] + 6 + i * 3} ${SH[1] + 4 + i * 4} Q${NK[0]} ${NK[1] - 8 + i * 5} ${HD[0] - 22} ${HD[1] - 18 + i * 6}" fill="none" stroke="${col}" stroke-width="${1.6 + 1.4 * f}" stroke-linecap="round" ${f > .55 ? 'class="pulse"' : ''}/>`).join('');
     o += lockIcon(SH[0] - 34, SH[1] - 12, false) + (f > .55 ? call(NK[0], NK[1], 300, 300, 'đám rối căng!', C.redD, 'middle') : Th(300, 300, 'đám rối cánh tay', { c: '#a08400', s: 12.5 }));
     o += card(372, 20, 178, 310) + T(461, 52, 'Vai ra được?', { s: 14 }) + ZS.bar(392, 64, 138, 0, C.green, '', { h: 14 }) + T(461, 100, 'không nhúc nhích', { s: 12.5, c: C.mute });
@@ -62,7 +76,7 @@ kit('bv-keo', {
     if (s.f >= 70) o += `<rect x="388" y="232" width="146" height="70" rx="16" fill="#ffd0d8"/>` + T(461, 262, '⚠ liệt tay', { s: 17, c: C.redD }) + T(461, 284, 'vai vẫn kẹt', { s: 13, c: C.redD });
     return o;
   },
-  say: s => s.f >= 70 ? ['ouch', 'Kéo mạnh **không gỡ được vai** — xương vẫn chặn. Chỉ kéo **căng đám rối cánh tay** ở cổ → có thể liệt tay.'] : ['happy', 'Hay là kéo **mạnh hơn**? Kéo thanh **💪 Lực kéo đầu** lên xem 👆']
+  say: s => s.f >= 70 ? ['ouch', 'Kéo mạnh **không gỡ được vai** — xương vẫn chặn. Chỉ kéo **căng đám rối cánh tay** ở cổ → có thể liệt tay.'] : ['happy', 'Hay là kéo **mạnh hơn**? **Kéo chấm đỏ** ở đầu bé xuống xem 👆']
 });
 kit('bv-xoay', {
   init: () => ({ a: 0 }), ui: () => [{ t: 'range', k: 'a', label: '🔄 Xoay hai vai', min: 0, max: 45, step: 5, unit: '°' }], goal: s => s.a >= 40,
@@ -123,7 +137,7 @@ kit('bv-mcr', {
   init: () => ({ flex: 0 }), ui: () => [{ t: 'range', k: 'flex', label: '🦵 Gập đùi mẹ sát bụng', min: 0, max: 100, step: 10, unit: '%' }], goal: s => s.flex >= 80,
   draw: s => {
     const f = s.flex / 100, rot = -24 * f, ok = f >= .8;
-    let o = card(20, 20, 300, 310) + pic('mcroberts.svg', 24, 24, 292, 300) + Th(250, 140, '① gập đùi', { c: C.redD, s: 13 }) + Th(150, 182, '② ấn trên mu', { c: C.redD, s: 13 });
+    let o = card(20, 20, 300, 310) + pic('mcroberts.svg', 24, 24, 292, 300) + Th(250, 160, '① gập đùi', { c: C.redD, s: 13 }) + Th(196, 202, '② ấn trên mu', { a: 'end', c: C.redD, s: 13 });
     // eo trên nhìn từ dưới lên: gập đùi → khớp vệ nhấc lên, đường trước–sau rộng ra
     const R = inlet(441, 186, .78, 0, 107, { ry: 98 + 14 * f });
     o += card(332, 20, 218, 310) + T(441, 44, 'Eo trên — nhìn từ dưới', { s: 12.5, c: C.mute }) + R.svg + Th(441, 186 - (98 + 14 * f) * .78 - 22, 'khớp vệ', { s: 12.5, c: '#a07a3c' });
@@ -138,7 +152,7 @@ kit('bv-supra', {
   draw: s => {
     const ok = s.pick === 'mu', bad = s.pick === 'day';
     let o = KV(ok) + (ok ? '' : tap('pick=mu', SP[0], SP[1], 26, 24)) + tap('pick=day', FU[0] + 10, FU[1] - 30, 30, 34, bad ? -1 : 0);
-    if (ok) o += ZS.drawIn(arrow(`M${SP[0] - 34} ${SP[1] - 50} l22 34`, C.green, 5), .6) + Th(SP[0] - 40, SP[1] - 58, 'ấn ngay trên xương mu', { a: 'end', c: C.green }) + `<circle cx="${SH[0]}" cy="${SH[1] - 6}" r="20" fill="none" stroke="${C.green}" stroke-width="2.4"/>`;
+    if (ok) o += ZS.drawIn(arrow(`M${SP[0] - 34} ${SP[1] - 50} l22 34`, C.green, 5), .6) + Th(172, 52, 'ấn ngay trên xương mu', { a: 'middle', c: C.green }) + `<circle cx="${SH[0]}" cy="${SH[1] - 6}" r="20" fill="none" stroke="${C.green}" stroke-width="2.4"/>`;
     if (bad) o += Th(FU[0] + 12, FU[1] + 30, '⛔ đáy tử cung', { a: 'start', c: C.redD });
     const R = inlet(461, 170, .62, ok ? 45 : 0, ok ? 98 : 107, { pdeg: s._p ? (s._p.pick === 'mu' ? 45 : 0) : null, phl: s._p ? (s._p.pick === 'mu' ? 98 : 107) : null });
     o += card(372, 20, 178, 310) + T(461, 44, 'Nhìn từ dưới lên', { s: 12.5, c: C.mute }) + R.svg;
@@ -148,36 +162,40 @@ kit('bv-supra', {
   say: s => s.pick === 'mu' ? ['wow', 'Đúng! Ấn **ngay trên xương mu**, đẩy **lưng vai trước** về phía ngực bé → vai **khép lại và xoay chéo** → lọt. Người đã được huấn luyện làm.'] : s.pick === 'day' ? ['ouch', 'Đó là **đáy tử cung** — ấn đây làm vai **nêm chặt hơn**. Thử chỗ khác!'] : ['happy', '**Ấn trên xương mu**: đặt tay ở đâu? Chạm vào một trong hai vòng 👆']
 });
 kit('bv-cam', {
-  init: () => ({ fun: false, yank: false, twist: false, seen: '' }), ui: () => [],
-  after: (s, k) => { if (s[k] && !s.seen.includes(k)) s.seen += k + ','; ['fun', 'yank', 'twist'].forEach(x => { if (x !== k) s[x] = false; }); },
+  init: () => ({ pick: '', seen: '' }), ui: () => [{ t: 'seg', k: 'pick', opts: [['fun', '⛔ Ấn đáy tử cung'], ['yank', '⛔ Kéo giật đầu'], ['twist', '⛔ Vặn xoay đầu']] }],
+  after: s => { if (s.pick && !s.seen.includes(s.pick)) s.seen += s.pick + ','; },
   goal: s => ['fun', 'yank', 'twist'].every(k => s.seen.includes(k)),
   draw: s => {
     let o = KV(false);
-    if (s.fun) o += ZS.drawIn(arrow(`M${FU[0] - 4} ${FU[1] - 70} l34 34`, C.red, 6)) + call(SH[0], SH[1], 250, 44, 'vai nêm CHẶT hơn', C.redD) + Th(FU[0] + 4, FU[1] + 40, 'có thể vỡ tử cung', { a: 'start', c: C.redD, s: 13 }) + `<circle cx="${SH[0]}" cy="${SH[1] - 6}" r="22" fill="none" stroke="${C.red}" stroke-width="3" class="pulse"/>`;
-    if (s.yank) o += ZS.drawIn(arrow(`M${HD[0] + 28} ${HD[1] + 24} l46 20`, C.red, 7)) + call(NK[0], NK[1], 300, 300, 'rách đám rối', C.redD, 'middle');
-    if (s.twist) o += `<path d="M${HD[0] - 30} ${HD[1] + 40} A42 42 0 1 0 ${HD[0] + 40} ${HD[1] - 26}" fill="none" stroke="${C.red}" stroke-width="3" marker-end="url(#arR)"/>` + call(NK[0], NK[1], 300, 300, 'tổn thương cổ', C.redD, 'middle');
-    o += tcard('!fun', 372, 20, 178, 92, s.fun, ['⛔ Ấn đáy tử cung', 'xem hậu quả'], '#ffd0d8') + tcard('!yank', 372, 129, 178, 92, s.yank, ['⛔ Kéo giật đầu', 'xem hậu quả'], '#ffd0d8') + tcard('!twist', 372, 238, 178, 92, s.twist, ['⛔ Vặn xoay đầu', 'xem hậu quả'], '#ffd0d8');
+    if (s.pick === 'fun') o += ZS.drawIn(arrow(`M${FU[0] - 4} ${FU[1] - 70} l34 34`, C.red, 6)) + call(SH[0], SH[1], 250, 44, 'vai nêm CHẶT hơn', C.redD) + Th(FU[0] + 4, FU[1] + 40, 'có thể vỡ tử cung', { a: 'start', c: C.redD, s: 13 }) + `<circle cx="${SH[0]}" cy="${SH[1] - 6}" r="22" fill="none" stroke="${C.red}" stroke-width="3" class="pulse"/>`;
+    if (s.pick === 'yank') o += ZS.drawIn(arrow(`M${HD[0] + 28} ${HD[1] + 24} l46 20`, C.red, 7)) + call(NK[0], NK[1], 300, 300, 'rách đám rối', C.redD, 'middle');
+    if (s.pick === 'twist') o += `<path d="M${HD[0] - 30} ${HD[1] + 40} A42 42 0 1 0 ${HD[0] + 40} ${HD[1] - 26}" fill="none" stroke="${C.red}" stroke-width="3" marker-end="url(#arR)"/>` + call(NK[0], NK[1], 300, 300, 'tổn thương cổ', C.redD, 'middle');
+    const R = { fun: ['⛔ Ấn đáy tử cung', 'vai nêm chặt hơn', 'có thể vỡ tử cung'], yank: ['⛔ Kéo giật đầu', 'rách đám rối cánh tay', 'vai vẫn kẹt'], twist: ['⛔ Vặn xoay đầu', 'tổn thương cổ', 'vai vẫn kẹt'] }[s.pick], n = s.seen.split(',').filter(Boolean).length;
+    o += card(372, 20, 178, 310, R ? '#fff1f4' : '#fff', R ? C.pinkD : C.grid) + (R ? `<g class="fadein">${T(461, 70, R[0], { s: 15, c: C.redD })}<path d="M392 92 H530" stroke="${C.grid}"/>${T(461, 140, R[1], { s: 15 })}${T(461, 176, R[2], { s: 15, c: C.redD })}${T(461, 240, '⛔', { s: 46 })}</g>` : T(461, 150, '👆 chọn một việc', { s: 15, c: C.soft }) + T(461, 176, 'ở trên để xem hậu quả', { s: 13, c: C.mute })) + T(461, 312, `đã xem ${n}/3`, { s: 12.5, c: C.mute });
     return o;
   },
-  say: s => ['fun', 'yank', 'twist'].every(k => s.seen.includes(k)) ? ['ouch', 'Ấn **đáy tử cung** → vai nêm chặt hơn, có thể vỡ tử cung. **Kéo giật / vặn đầu** → tổn thương cổ và đám rối cánh tay.'] : s.fun ? ['ouch', 'Lực từ **đáy** đẩy vai **nêm sâu hơn** vào khớp vệ.'] : s.yank ? ['ouch', 'Kéo giật **không gỡ được vai**, chỉ làm **rách đám rối cánh tay**.'] : s.twist ? ['ouch', 'Vặn đầu làm **tổn thương cổ**, vai vẫn kẹt.'] : ['worry', 'Có **3 việc CẤM** khi kẹt vai. Bấm từng thẻ xem hậu quả 👆']
+  say: s => ['fun', 'yank', 'twist'].every(k => s.seen.includes(k)) ? ['ouch', 'Ấn **đáy tử cung** → vai nêm chặt hơn, có thể vỡ tử cung. **Kéo giật / vặn đầu** → tổn thương cổ và đám rối cánh tay.'] : s.pick === 'fun' ? ['ouch', 'Lực từ **đáy** đẩy vai **nêm sâu hơn** vào khớp vệ.'] : s.pick === 'yank' ? ['ouch', 'Kéo giật **không gỡ được vai**, chỉ làm **rách đám rối cánh tay**.'] : s.pick === 'twist' ? ['ouch', 'Vặn đầu làm **tổn thương cổ**, vai vẫn kẹt.'] : ['worry', 'Có **3 việc CẤM** khi kẹt vai. Chọn từng việc ở trên xem hậu quả 👆']
 });
 kit('bv-tsm', {
-  init: () => ({ cut: false }), ui: () => [{ t: 'tog', k: 'cut', label: '✂️ Cắt tầng sinh môn' }], goal: s => s.cut,
+  init: () => ({ cut: 0 }), ui: () => [{ t: 'range', k: 'cut', label: '✂️ Cắt TSM hướng 7h', min: 0, max: 100, step: 10, unit: '%' }], goal: s => s.cut >= 70,
   draw: s => {
-    const c = s.cut;
+    const f = s.cut / 100, hot = f >= .7, mo = (4.0 + 4.5 * f).toFixed(1);
     let o = card(20, 20, 340, 310) + T(190, 46, 'Lỗ ra khung chậu — nhìn từ dưới', { s: 13, c: C.mute });
-    o += `<ellipse cx="190" cy="186" rx="128" ry="112" fill="none" stroke="${C.bone}" stroke-width="22"/><ellipse cx="190" cy="186" rx="117" ry="101" fill="none" stroke="${C.boneD}" stroke-width="1.2"/>` + Th(190, 84, 'XƯƠNG (cứng)', { s: 13, c: '#a07a3c' });
-    o += `<ellipse cx="190" cy="${c ? 196 : 190}" rx="${c ? 88 : 86}" ry="${c ? 82 : 76}" fill="#ffd6e2" stroke="${C.pinkD}" stroke-width="1.2"/>`;
-    o += `<path d="M190 ${c ? 190 : 186} m-34 0 a34 ${c ? 50 : 34} 0 1 0 68 0 a34 ${c ? 50 : 34} 0 1 0 -68 0" fill="#fff" stroke="${C.myoD}" stroke-width="1.4"/>` + `<circle cx="190" cy="${c ? 184 : 184}" r="26" fill="url(#gSkin)" stroke="${C.skinD}" stroke-width="1.2"/>`;
-    if (c) o += `<path d="M198 238 L238 282" stroke="${C.redD}" stroke-width="2.4" stroke-dasharray="5 4"/>` + Th(244, 296, 'đường cắt', { a: 'start', s: 12.5, c: C.redD }) + T(150, 250, '✋', { s: 26 }) + Th(118, 286, 'tay vào được', { a: 'middle', s: 12.5, c: C.green });
-    o += Th(190, 132, 'mô mềm', { s: 12.5, c: C.myoD });
-    o += card(372, 20, 178, 310) + T(461, 60, 'Cắt TSM làm', { s: 14 }) + T(461, 80, 'rộng cái gì?', { s: 14 });
-    o += `<rect x="388" y="110" width="146" height="60" rx="14" fill="${c ? C.mint : '#f7f4fc'}"/>` + T(461, 136, 'mô mềm', { s: 14 }) + T(461, 156, c ? '✓ rộng ra' : '?', { s: 14, c: c ? C.green : C.mute });
-    o += `<rect x="388" y="186" width="146" height="60" rx="14" fill="${c ? '#ffe6d5' : '#f7f4fc'}"/>` + T(461, 212, 'xương', { s: 14 }) + T(461, 232, c ? '✗ y nguyên' : '?', { s: 14, c: c ? '#b5651d' : C.mute });
-    if (c) o += T(461, 284, 'không bắt buộc', { s: 13, c: C.mute }) + T(461, 302, 'mọi ca', { s: 13, c: C.mute });
+    o += `<ellipse cx="190" cy="186" rx="128" ry="112" fill="none" stroke="${C.bone}" stroke-width="22"/><ellipse cx="190" cy="186" rx="117" ry="101" fill="none" stroke="${C.boneD}" stroke-width="1.2"/>` + Th(190, 84, 'VÒNG XƯƠNG (cố định 10 cm)', { s: 12.5, c: '#a07a3c' });
+    o += `<ellipse cx="190" cy="${190 + 6 * f}" rx="${86 + 12 * f}" ry="${76 + 10 * f}" fill="#ffd6e2" stroke="${C.pinkD}" stroke-width="1.2"/>`;
+    o += `<path d="M190 186 m-34 0 a34 ${34 + 20 * f} 0 1 0 68 0 a34 ${34 + 20 * f} 0 1 0 -68 0" fill="#fff" stroke="${C.myoD}" stroke-width="1.4"/>` + `<circle cx="190" cy="184" r="26" fill="url(#gSkin)" stroke="${C.skinD}" stroke-width="1.2"/>`;
+    if (f > 0) {
+      o += `<path d="M198 238 L${198 + 42 * f} ${238 + 44 * f}" stroke="${C.redD}" stroke-width="${2 + 2 * f}" stroke-dasharray="5 4"/>` + Th(200 + 44 * f, 246 + 44 * f, 'đường cắt 7h', { a: 'start', s: 12, c: C.redD });
+      if (hot) o += T(150, 252, '✋', { s: 26 }) + Th(118, 286, 'tay luồn vào được', { a: 'middle', s: 12.5, c: C.green });
+    }
+    o += Th(190, 132, 'mô mềm âm đạo', { s: 12.5, c: C.myoD });
+    o += card(372, 20, 178, 310) + T(461, 52, 'Cắt TSM làm rộng…', { s: 14 });
+    o += `<rect x="388" y="74" width="146" height="72" rx="14" fill="${hot ? C.mint : '#f7f4fc'}"/>` + T(461, 96, 'Mô mềm âm đạo', { s: 13 }) + T(461, 118, mo + ' cm', { s: 16, c: hot ? C.green : C.ink }) + T(461, 136, hot ? '✓ đủ chỗ đưa tay' : 'kéo thêm để rộng', { s: 11.5, c: hot ? C.green : C.mute });
+    o += `<rect x="388" y="158" width="146" height="72" rx="14" fill="${hot ? '#ffe6d5' : '#f7f4fc'}"/>` + T(461, 180, 'Vòng xương chậu', { s: 13 }) + T(461, 202, '10,0 cm (y nguyên)', { s: 15, c: hot ? '#b5651d' : C.mute }) + T(461, 220, '✗ xương không đổi', { s: 11.5, c: hot ? C.redD : C.mute });
+    o += T(461, 266, 'Kẹt do XƯƠNG', { s: 13, c: C.ink }) + T(461, 286, '→ cắt TSM', { s: 12.5, c: C.mute }) + T(461, 304, 'KHÔNG bắt buộc', { s: 13.5, c: C.redD });
     return o;
   },
-  say: s => s.cut ? ['worry', 'Chỉ **mô mềm** rộng ra → **tay** dễ vào làm thủ thuật. **Xương không rộng thêm** chút nào → không bắt buộc cắt mọi ca.'] : ['happy', 'Có nên **cắt tầng sinh môn**? Bấm **✂️** xem cái gì rộng ra 👆']
+  say: s => s.cut >= 70 ? ['worry', 'Chỉ **mô mềm** rộng ra (4 cm → 8,5 cm) → **tay** vào làm thủ thuật. **Xương không rộng thêm** chút nào → không bắt buộc cắt mọi ca.'] : ['happy', 'Có nên **cắt tầng sinh môn**? Kéo thanh **✂️ Cắt TSM hướng 7h** xem cái gì rộng ra 👆']
 });
 B['xu-tri-dau-tien'] = [
   { t: 'Việc đầu tiên: gọi to, ghi giờ', kit: 'bv-goi' },
@@ -218,15 +236,20 @@ kit('bv-xoay2', {
   say: s => s.a >= 40 ? ['wow', '**Xoay vai**: ngón tay đẩy mặt sau vai → hai vai từ **trước–sau** sang **đường chéo** rộng hơn → lọt.'] : ['happy', 'Bác sĩ đưa **ngón tay** vào sau vai trước. Kéo thanh **🔄 Ngón tay xoay vai** 👆']
 });
 kit('bv-tay', {
-  init: () => ({ arm: false }), ui: () => [{ t: 'tog', k: 'arm', label: '🖐 Lấy tay sau ra ngoài' }], goal: s => s.arm,
+  init: () => ({ keo: 0 }), ui: () => [{ t: 'range', k: 'keo', label: '🖐 Quét cẳng tay sau qua ngực', min: 0, max: 100, step: 10, unit: '%' }], goal: s => s.keo >= 70,
   draw: s => {
-    const R = inlet(461, 160, .62, 0, s.arm ? 84 : 107, { arm: s.arm, phl: s._p ? (s._p.arm ? 84 : 107) : null });
-    let o = card(20, 20, 340, 310) + pic('vai-hep.jpg', 34, 40, 312, 240) + Th(110, 300, 'đủ hai tay: rộng', { s: 13, c: C.redD }) + Th(266, 300, 'bớt một tay: hẹp', { s: 13, c: C.green });
-    o += card(372, 20, 178, 310) + T(461, 44, 'Nhìn từ dưới lên', { s: 12.5, c: C.mute }) + R.svg;
-    o += T(461, 270, R.ok ? '✓ vai lọt' : '✗ vai kẹt', { s: 18, c: R.ok ? C.green : C.redD }) + T(461, 292, s.arm ? 'còn vai + nách' : 'đủ hai vai', { s: 13, c: C.mute });
+    const f = s.keo / 100, hot = f >= .7, hl = Math.round(107 - 23 * f), dk = (12.0 - 2.5 * f).toFixed(1);
+    const R = inlet(461, 154, .62, 0, hl, { arm: hot, phl: s._p ? Math.round(107 - 23 * (s._p.keo || 0) / 100) : null });
+    let o = card(20, 20, 340, 310) + pic('vai-hep.jpg', 30, 34, 320, 246);
+    // khung highlight theo tiến trình kéo
+    o += `<rect x="${hot ? 186 : 38}" y="38" width="154" height="236" rx="14" fill="none" stroke="${hot ? C.green : C.amber}" stroke-width="2.6" stroke-dasharray="${hot ? '' : '5 4'}" class="pulse"/>`;
+    o += `<rect x="42" y="284" width="140" height="26" rx="13" fill="${hot ? '#fff' : '#ffd0d8'}" stroke="${hot ? C.grid : C.red}" stroke-width="1.4"/><rect x="194" y="284" width="154" height="26" rx="13" fill="${hot ? C.mint : '#fff'}" stroke="${hot ? C.green : C.grid}" stroke-width="1.4"/>` + Th(112, 301, '① 2 vai: 12,0 cm', { s: 12.5, c: C.redD }) + Th(271, 301, '② nách + vai: 9,5 cm', { s: 12.5, c: C.green });
+    o += card(372, 20, 178, 310) + T(461, 42, 'Nhìn từ dưới lên', { s: 12, c: C.mute }) + R.svg;
+    o += `<rect x="388" y="222" width="146" height="52" rx="12" fill="${R.ok ? C.mint : '#ffd0d8'}"/>` + T(461, 244, 'Đường kính vai', { s: 12, c: C.mute }) + T(461, 263, `${dk} cm (${R.ok ? '✓ LỌT' : '✗ KẸT'})`, { s: 15, c: R.ok ? C.green : C.redD });
+    o += T(461, 292, R.ok ? 'giảm 2,5 cm' : 'chưa hạ tay sau', { s: 12.5, c: R.ok ? C.green : C.mute }) + (R.ok ? T(461, 308, 'vai trước trượt lọt!', { s: 12.5, c: C.green }) : '');
     return o;
   },
-  say: s => s.arm ? ['wow', 'Đưa **tay sau** ra ngoài → chỉ còn **vai + nách** đi qua → đường kính **nhỏ lại** → vai lọt.'] : ['happy', 'Bấm **🖐 Lấy tay sau ra ngoài** — xem đường kính vai đổi thế nào 👆']
+  say: s => s.keo >= 70 ? ['wow', 'Đưa **tay sau** ra ngoài → chỉ còn **vai + nách** đi qua → đường kính **giảm 2,5 cm** (12 cm → 9,5 cm) → vai lọt ngay.'] : ['happy', 'Kéo thanh **🖐 Quét cẳng tay sau qua ngực** — xem đường kính vai bé thu hẹp lại 👆']
 });
 B['thu-thuat-tiep'] = [
   { t: 'Chưa ra? Đổi cách, đừng kéo mạnh hơn', kit: 'bv-doi' },
@@ -239,7 +262,7 @@ kit('bv-hoisuc', {
   init: () => ({ m: 0 }), ui: () => [{ t: 'range', k: 'm', label: '⏱ Thời gian kẹt vai', min: 0, max: 10, step: 1, unit: '' }], goal: s => s.m >= 7,
   draw: s => {
     const f = s.m / 10;
-    let o = card(20, 20, 300, 310) + `<filter id="tim"><feColorMatrix type="matrix" values="0.55 0 0 0 0  0 0.62 0 0 0.05  0 0 1 0 0.22  0 0 0 1 0"/></filter>`;
+    let o = card(20, 20, 300, 310);
     o += pic('sv-be.png', 96, 26, 150, 300) + `<g opacity="${(f * .9).toFixed(2)}" filter="url(#tim)">${pic('sv-be.png', 96, 26, 150, 300)}</g>`;
     o += card(332, 20, 218, 310) + T(441, 52, 'Thiếu oxy', { s: 15 }) + ZS.bar(352, 64, 178, s.m * 10, f > .6 ? C.red : f > .3 ? C.amber : C.mintD, '', { h: 14 }) + T(441, 102, f > .6 ? 'nặng' : f > .3 ? 'tăng dần' : 'còn ít', { s: 13, c: C.mute });
     o += T(441, 146, 'kẹt càng lâu', { s: 14 }) + T(441, 166, '→ càng nặng', { s: 14 });
@@ -256,47 +279,66 @@ kit('bv-erb', {
   init: () => ({ tap: false }), ui: () => [], goal: s => s.tap,
   draw: s => {
     let o = card(20, 20, 200, 310) + pic('erb.jpg', 26, 24, 188, 302);
-    if (!s.tap) o += tap('tap=true', 140, 210, 34, 86) + tap('tap=true', 66, 110, 30, 40);
-    else o += call(160, 120, 232, 70, 'vai khép, xoay trong', C.redD) + call(136, 200, 232, 186, 'khuỷu duỗi', C.redD) + call(128, 286, 232, 290, 'cổ tay gập', C.redD) + Th(30, 174, 'tay lành: gập', { s: 12.5, c: C.green, a: 'start' });
+    if (!s.tap) {
+      o += tap('tap=true', 148, 195, 36, 80) + tap('tap=true', 68, 95, 26, 26);
+      o += Th(68, 126, 'tay lành', { s: 12, c: C.green, a: 'middle' });
+      o += Th(148, 276, 'tay liệt', { s: 12, c: C.redD, a: 'middle' });
+    } else {
+      o += `<circle cx="158" cy="106" r="16" fill="none" stroke="${C.red}" stroke-width="2.5" class="pulse"/>` + call(158, 106, 232, 70, 'C5 → vai khép, xoay trong', C.redD);
+      o += `<circle cx="148" cy="195" r="16" fill="none" stroke="${C.red}" stroke-width="2.5" class="pulse"/>` + call(148, 195, 232, 186, 'C6 → khuỷu duỗi thẳng', C.redD);
+      o += `<circle cx="126" cy="270" r="14" fill="none" stroke="${C.red}" stroke-width="2.5" class="pulse"/>` + call(126, 270, 232, 286, 'C7 → cổ tay bồi bàn', C.redD);
+      o += `<circle cx="68" cy="95" r="16" fill="none" stroke="${C.green}" stroke-width="2"/>` + Th(68, 95, '✓ tay lành: co gập', { s: 12, c: C.green, a: 'middle' });
+    }
     o += card(372, 20, 178, 310) + rootMap(384, 50, s.tap ? [0, 1] : [], '');
     return o;
   },
-  say: s => s.tap ? ['worry', '**Erb (C5–C6)**: đầu bị kéo lệch xa vai → căng rễ trên. Tay **thõng, khép, xoay trong, cổ tay gập** (“tay xin tiền boa”). **Nắm tay vẫn còn**.'] : ['happy', 'Bé này cử động **một tay** kém. Chạm vào **tay bị liệt** 👆']
+  say: s => s.tap ? ['worry', '**Erb (C5–C6)**: đầu bị kéo lệch xa vai → căng rễ trên. Tay **thõng, khép, xoay trong, cổ tay gập** (“tay bồi bàn”). **Nắm tay vẫn còn**.'] : ['happy', 'Bé này cử động **một tay** kém. Chạm vào **tay bị liệt** trên hình thật 👆']
 });
 kit('bv-klu', {
-  init: () => ({ tap: false }), ui: () => [], goal: s => s.tap,
+  init: () => ({ f: 0 }), ui: () => [{ t: 'range', k: 'f', label: '🙆 Tay bị kéo lên quá đầu', min: 0, max: 100, step: 10, unit: '%' }], goal: s => s.f >= 70,
   draw: s => {
+    const hot = s.f >= 60, f = s.f / 100;
     let o = card(20, 20, 340, 310) + pic('horner.jpg', 30, 30, 320, 80);
-    o += pic('sv-ban-tay.png', 120, 128, 112, 194);
-    if (s.tap) o += `<ellipse cx="176" cy="268" rx="44" ry="38" fill="${C.red}" opacity=".22"/>` + call(176, 268, 244, 240, 'cơ nhỏ bàn tay liệt', C.redD) + Th(244, 262, '→ bàn tay vuốt', { a: 'start', s: 13, c: C.redD }) + call(268, 72, 300, 126, 'đồng tử co · mi sụp', C.redD, 'middle');
-    o += card(372, 20, 178, 310) + rootMap(384, 50, s.tap ? [3, 4] : [], s.tap ? '' : 'tap=true');
-    if (!s.tap) o += `<rect x="384" y="${50 + 3 * 46 + 2}" width="160" height="88" rx="14" fill="none" stroke="${C.soft}" stroke-width="2" stroke-dasharray="6 5" class="pulse"/>`;
+    o += `<ellipse cx="85" cy="71" rx="26" ry="16" fill="none" stroke="${C.green}" stroke-width="1.6" stroke-dasharray="3 3"/>` + Th(85, 102, 'mắt lành bình thường', { s: 11.5, c: C.mute });
+    if (hot) {
+      o += `<ellipse cx="266" cy="71" rx="28" ry="18" fill="none" stroke="${C.red}" stroke-width="2.5" class="pulse"/>` + call(266, 52, 280, 22, 'mi sụp · co đồng tử (Horner)', C.redD, 'middle', 12);
+    }
+    o += pic('sv-ban-tay.png', 120, 128, 112, 194) + (f ? `<path d="M326 306 V${306 - 130 * f}" stroke="${hot ? C.red : C.amber}" stroke-width="${3 + 4 * f}" stroke-linecap="round" marker-end="url(#${hot ? 'arR' : 'ar'})"/>` + Th(326, 322, 'kéo tay lên ↑', { s: 11.5, c: hot ? C.redD : '#b8860b' }) : '');
+    if (hot) o += `<ellipse cx="176" cy="268" rx="44" ry="38" fill="${C.red}" opacity=".22"/>` + call(176, 268, 244, 240, 'cơ nhỏ bàn tay liệt', C.redD) + Th(244, 262, '→ bàn tay vuốt', { a: 'start', s: 13, c: C.redD });
+    o += card(372, 20, 178, 310) + rootMap(384, 50, hot ? [3, 4] : [], '');
     return o;
   },
-  say: s => s.tap ? ['worry', '**Klumpke (C8–T1)**: tay bị kéo lên quá đầu → căng rễ dưới. **Cơ nhỏ bàn tay** liệt → **bàn tay vuốt**; tổn thương T1 → **sụp mi, co đồng tử** (Horner).'] : ['happy', 'Chạm vào **2 rễ dưới cùng (C8–T1)** trên sơ đồ 👆']
+  say: s => s.f >= 70 ? ['worry', '**Klumpke (C8–T1)**: tay kéo lên quá đầu → căng rễ dưới. **Cơ nhỏ bàn tay** liệt → **bàn tay vuốt**; tổn thương T1 → **sụp mi, co đồng tử (Horner)**.'] : ['happy', 'Kéo thanh **🙆 Tay bị kéo lên quá đầu** — rễ nào bị căng trên sơ đồ? 👆']
 });
 kit('bv-don', {
   init: () => ({ tap: false }), ui: () => [], goal: s => s.tap,
   draw: s => {
     let o = card(20, 20, 340, 310) + pic('sv-xuong-don.png', 30, 40, 320, 261);
-    o += s.tap ? call(116, 92, 210, 44, 'xương đòn gãy', C.redD) : tap('tap=true', 116, 92, 34, 26);
+    if (s.tap) {
+      o += `<circle cx="142" cy="78" r="18" fill="${C.red}" fill-opacity=".2" stroke="${C.red}" stroke-width="2.5" class="pulse"/>`;
+      o += call(142, 78, 220, 38, '🦴 gãy 1/3 ngoài–giữa', C.redD);
+      o += Th(142, 114, '💥 sờ lạo xạo xương (crepitus)', { s: 12.5, c: C.redD });
+    } else {
+      o += tap('tap=true', 142, 78, 34, 26);
+      o += Th(142, 114, '👆 chạm chỗ gãy', { s: 12, c: C.soft });
+    }
     o += card(372, 20, 178, 310);
-    o += s.tap ? [['🫳', 'sưng, sờ lạo xạo'], ['💪', 'tay ít cử động'], ['↔', 'Moro mất 1 bên'], ['⚠', 'dễ nhầm liệt'], ['🦴', 'có thể gãy cánh tay']].map(([ic, t], i) => T(392, 66 + i * 52, ic, { a: 'start', s: 20 }) + T(422, 62 + i * 52, t, { a: 'start', s: 13 })).join('') : T(461, 170, '👆', { s: 34 }) + T(461, 212, 'Chỗ nào gãy?', { s: 15 });
+    o += s.tap ? [['🫳', 'sưng, sờ lạo xạo'], ['💪', 'tay ít cử động'], ['↔', 'Moro mất 1 bên'], ['⚠', 'dễ nhầm liệt'], ['🦴', 'can xương sau 2-4w']].map(([ic, t], i) => T(392, 66 + i * 52, ic, { a: 'start', s: 20 }) + T(422, 62 + i * 52, t, { a: 'start', s: 13 })).join('') : T(461, 170, '👆', { s: 34 }) + T(461, 212, 'Chỗ nào gãy?', { s: 15 }) + T(461, 234, 'sờ nắn xương đòn', { s: 12.5, c: C.mute });
     return o;
   },
-  say: s => s.tap ? ['worry', '**Gãy xương đòn**: sưng, sờ **lạo xạo**, tay bên đó **ít cử động**, Moro **mất một bên** — dễ nhầm với liệt đám rối.'] : ['happy', 'Xương hay gãy nhất khi kẹt vai: chạm vào **chỗ gãy** trên hình 👆']
+  say: s => s.tap ? ['worry', '**Gãy xương đòn**: sưng, sờ **lạo xạo xương**, tay ít cử động, Moro **mất một bên** — dễ nhầm với liệt đám rối nhưng can xương lành sau 2–4 tuần.'] : ['happy', 'Xương hay gãy nhất khi kẹt vai: sờ nắn chạm vào **chỗ gãy** trên hình 👆']
 });
 kit('bv-me', {
-  init: () => ({ u: false, p: false }), ui: () => [], goal: s => s.u && s.p,
+  init: () => ({ sel: '', u: false, p: false }), ui: () => [{ t: 'seg', k: 'sel', opts: [['u', '🤰 Tử cung'], ['p', '🩹 Tầng sinh môn']] }], after: s => { if (s.sel === 'u') s.u = true; if (s.sel === 'p') s.p = true; }, goal: s => s.u && s.p,
   draw: s => {
-    let o = `<g class="tap" data-set="!u">${card(20, 20, 256, 310, s.u ? '#fff1f4' : '#fff', s.u ? C.pinkD : C.grid)}${pic('sv-tu-cung.png', 34, 40, 228, 170)}`;
-    o += s.u ? [0, 1, 2].map(i => ZS.drop(126 + i * 22, 232 + (i % 2) * 14, .9, 'drip')).join('') + T(148, 290, 'Tử cung mệt → đờ', { s: 14 }) + T(148, 310, '→ BĂNG HUYẾT', { s: 14, c: C.redD }) : T(148, 290, '👆 tử cung', { s: 14, c: C.soft });
-    o += `</g><g class="tap" data-set="!p">${card(294, 20, 256, 310, s.p ? '#fff1f4' : '#fff', s.p ? C.pinkD : C.grid)}`;
-    o += `<ellipse cx="422" cy="130" rx="46" ry="70" fill="${C.pink}" stroke="${C.pinkD}" stroke-width="1.4"/><ellipse cx="422" cy="128" rx="14" ry="44" fill="#fff" stroke="${C.myoD}"/><circle cx="422" cy="236" r="16" fill="#f3c6d3" stroke="${C.pinkD}" stroke-width="1.4"/><path d="M402 204 Q422 214 442 204 L440 220 Q422 226 404 220Z" fill="${C.peach}" stroke="${C.peachD}"/>` + T(474, 132, 'âm hộ', { a: 'start', s: 12.5, c: C.mute }) + call(442, 212, 478, 196, 'tầng sinh môn', C.mute, 'start', 12) + T(444, 241, 'hậu môn', { a: 'start', s: 12.5, c: C.mute });
-    o += s.p ? `<path d="M422 174 L426 196 L418 210 L422 226" fill="none" stroke="${C.redD}" stroke-width="3" stroke-linecap="round"/>` + T(422, 290, 'Rách độ III–IV', { s: 14, c: C.redD }) + T(422, 310, '(tới cơ thắt hậu môn)', { s: 12, c: C.mute }) : T(422, 290, '👆 tầng sinh môn', { s: 14, c: C.soft });
+    let o = `<g>${card(20, 20, 256, 310, s.u ? '#fff1f4' : '#fff', s.u ? C.pinkD : C.grid)}${pic('sv-tu-cung.png', 34, 40, 228, 170)}`;
+    o += s.u ? [0, 1, 2].map(i => ZS.drop(126 + i * 22, 232 + (i % 2) * 14, .9, 'drip')).join('') + T(148, 290, 'Tử cung mệt → đờ', { s: 14 }) + T(148, 310, '→ BĂNG HUYẾT', { s: 14, c: C.redD }) : T(148, 290, '👆 chọn 🤰 ở trên', { s: 14, c: C.soft });
+    o += `</g><g>${card(294, 20, 256, 310, s.p ? '#fff1f4' : '#fff', s.p ? C.pinkD : C.grid)}`;
+    o += `<ellipse cx="422" cy="130" rx="46" ry="70" fill="${C.pink}" stroke="${C.pinkD}" stroke-width="1.4"/><ellipse cx="422" cy="128" rx="14" ry="44" fill="#fff" stroke="${C.myoD}"/><circle cx="422" cy="236" r="16" fill="#f3c6d3" stroke="${C.pinkD}" stroke-width="1.4"/><path d="M402 204 Q422 214 442 204 L440 220 Q422 226 404 220Z" fill="${C.peach}" stroke="${C.peachD}"/>` + T(474, 132, 'âm hộ', { a: 'start', s: 12.5, c: C.mute }) + call(404, 212, 372, 196, 'tầng sinh môn', C.mute, 'end', 12) + T(444, 241, 'hậu môn', { a: 'start', s: 12.5, c: C.mute });
+    o += s.p ? `<path d="M422 174 L426 196 L418 210 L422 226" fill="none" stroke="${C.redD}" stroke-width="3" stroke-linecap="round"/>` + T(422, 290, 'Rách độ III–IV', { s: 14, c: C.redD }) + T(422, 310, '(tới cơ thắt hậu môn)', { s: 12, c: C.mute }) : T(422, 290, '👆 chọn 🩹 ở trên', { s: 14, c: C.soft });
     return o + '</g>';
   },
-  say: s => s.u && s.p ? ['worry', 'Mẹ dễ **băng huyết** (tử cung mệt, đờ) và **rách tầng sinh môn độ III–IV** (tới cơ thắt hậu môn) → khám kỹ, xử trí ngay.'] : ['happy', 'Bé xong rồi, tới **mẹ**: chạm **2 chỗ** cần kiểm tra 👆']
+  say: s => s.u && s.p ? ['worry', 'Mẹ dễ **băng huyết** (tử cung mệt, đờ) và **rách tầng sinh môn độ III–IV** (tới cơ thắt hậu môn) → khám kỹ, xử trí ngay.'] : ['happy', 'Bé xong rồi, tới **mẹ**: chọn **2 chỗ** cần kiểm tra ở trên 👆']
 });
 const REC = [['⏱', 'Giờ đầu ra · giờ thân ra', '10:02 · 10:05'], ['👥', 'Ai có mặt, lúc mấy giờ', 'BS sản, gây mê, nhi'], ['🔄', 'Thủ thuật theo thứ tự + đáp ứng', 'McRoberts ✗ → ấn mu ✓'], ['👶', 'Tình trạng bé · 👩 mẹ', 'Apgar, tay P yếu · rách độ II'], ['💬', 'Đã giải thích cho gia đình', 'lúc 10:40, hẹn khám lại']];
 kit('bv-ghi', {

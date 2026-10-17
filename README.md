@@ -12,11 +12,17 @@ Web tĩnh học chương 6 (ELOs Topic 46 + giáo trình UMP). Mở `index.html`
 - **Chốt chương** cuối mỗi chặng: thẻ lật tự kiểm. **📌 Tra nhanh đi trực**: số/ngưỡng hay dùng kèm link về bài.
 - Tìm không dấu, tiến độ lưu trên trình duyệt (xuất/nhập JSON), phím ← → / Space, vuốt ngang, âm thanh tùy chọn.
 
+## Cập nhật 10/2026 (dễ hiểu hơn)
+- Mỗi **trang tí hon** = hình to + **👆 Việc của bạn** + (sau khi làm) **💡 À ra vậy: Thấy → Vì → Nên**. Nút **▶ Xem mẫu** cho bàn tay ma làm thử; **chạm chữ gạch chấm** (BHSS, NTĐ…) để xem nghĩa.
+- **Không khóa trang**: bấm Tiếp/Trước, thanh bước hay chấm bước để qua lại thoải mái; làm xong trang thì hiện **✓ Xong** ở góc hình.
+- Trang ôn **Hỏi nhanh Đúng/Sai**: thẻ lớn từng câu, chạm ✓/✗ → xem lý do ngay.
+- Mỗi chương có trang **mở chương** (3 mục tiêu + lộ trình): `#/chuong/<id>`.
+
 ## Thư mục
 - `dist/`: toàn bộ web và tài nguyên offline (kể cả font), là thư mục xuất bản.
   - `js/scenes-core.js` tiện ích vẽ (đồ thị, giải phẫu, nhãn) · `scenes-1..7.js` các họ hình · `specs.js` màn → cảnh + vùng + ghi chú · `app.js` trình phát màn/OSCE.
 - `research/`: kiểm kê nguồn, SHA256, trích xuất, OCR, đối chiếu y khoa. Không xuất bản toàn bộ tài liệu gốc.
-- `qa/`: `check.cjs` (dữ liệu), `scenes-check.cjs` (vẽ mọi cảnh ở mọi trạng thái), báo cáo.
+- `qa/`: `check.cjs` (dữ liệu), `scenes-check.cjs` (vẽ mọi cảnh ở mọi trạng thái, tới đích, chuỗi nhân–quả, ▶ Xem mẫu, ảnh không tràn khung), báo cáo.
 - `.openai/hosting.json`: Site identity và cấu hình static, giữ nguyên project_id khi cập nhật.
 
 ## Kiểm tra

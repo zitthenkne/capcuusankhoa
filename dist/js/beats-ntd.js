@@ -22,14 +22,14 @@ const cls = e => e <= 0 ? ['Nhau tiền đạo', 'mép nhau chạm / che lỗ tr
 
 // ═════════ Cùng một bánh nhau, khác vị trí là khác rủi ro
 kit('bn-vt', {
-  init: () => ({ e: 40, seen: '' }), ui: () => [{ t: 'range', k: 'e', label: '📏 Mép nhau → lỗ trong', min: -30, max: 40, step: 5, unit: ' mm' }], after: s => markSeen(s, cls(s.e)[0]), goal: s => cls(-1).slice(0, 1).concat(cls(10)[0]).every(k => seen(s, k)),
+  init: () => ({ e: 40, dx: 200, dy: 177, seen: '' }), ui: () => [], after: (s, k) => { if (k === 'dy' || k === 'dx') s.e = Math.max(-30, Math.min(40, Math.round(40 * (235.7 - s.dy) / 58.9 / 5) * 5)); markSeen(s, cls(s.e)[0]); }, goal: s => cls(-1).slice(0, 1).concat(cls(10)[0]).every(k => seen(s, k)),
   draw: s => {
     const U = UT(180, 40, .95, s.e, { measure: true, osLabel: true }), c = cls(s.e);
-    let o = card(20, 20, 330, 316, '#fffdfa') + U.svg + Th(180, 334, 'tử cung nhìn dọc (sau 16 tuần)', { s: 12, c: C.mute });
+    let o = card(20, 20, 330, 316, '#fffdfa') + U.svg + ZS.BK.drag('d', U.edge[0], U.edge[1], 11, '↕', [40, 177, 330, 280], '#ff8fa8') + Th(180, 334, 'tử cung nhìn dọc (sau 16 tuần)', { s: 12, c: C.mute });
     o += card(362, 20, 188, 316) + `<g class="${ZS.fresh(s, z => cls(z.e)[0] === c[0]) ? 'fadein' : ''}">${pic(c[3], 386, 32, 140, 160)}${T(456, 222, c[0], { s: 16, c: c[2] })}${ZS.wrap(c[1], 22).map((l, i) => T(456, 246 + i * 18, l, { s: 12.5, c: C.mute })).join('')}</g>` + T(456, 314, 'RCOG 2026 · đo bằng TVS', { s: 11, c: C.mute });
     return o;
   },
-  say: s => ['Nhau tiền đạo', 'Nhau bám thấp'].every(k => seen(s, k)) ? ['happy', '**Tiền đạo**: mép nhau **chạm/che** lỗ trong. **Bám thấp**: mép nhau **< 20 mm** nhưng chưa chạm. Đo bằng **TVS**; tên cũ “trung tâm, bám mép…” chỉ là lịch sử.'] : ['happy', 'Kéo thanh **📏 Mép nhau → lỗ trong** về gần 0 và qua số âm 👆']
+  say: s => ['Nhau tiền đạo', 'Nhau bám thấp'].every(k => seen(s, k)) ? ['happy', '**Tiền đạo**: mép nhau **chạm/che** lỗ trong. **Bám thấp**: mép nhau **< 20 mm** nhưng chưa chạm. Đo bằng **TVS**; tên cũ “trung tâm, bám mép…” chỉ là lịch sử.'] : ['happy', 'Kéo **chấm hồng ↕** ở mép nhau xuống sát **lỗ trong** rồi qua cả lỗ 👆']
 });
 kit('bn-di', {
   init: () => ({ w: 20 }), ui: () => [{ t: 'range', k: 'w', label: '🤰 Tuổi thai', min: 20, max: 36, step: 2, unit: ' tuần' }], goal: s => s.w >= 32,
@@ -60,18 +60,18 @@ kit('bn-ng', {
   say: s => RFN.filter(([k]) => s[k]).length >= 3 ? ['happy', 'Yếu tố nguy cơ là **gợi ý xác suất**, không chứng minh nguyên nhân. Hỏi để **chuẩn bị đúng**, không để loại trừ.'] : ['happy', 'Bật vài **yếu tố nguy cơ** — nhìn cột khả năng 👆']
 });
 kit('bn-seo', {
-  init: () => ({ seo: false, truoc: false }), ui: () => [], goal: s => s.seo && s.truoc,
+  init: () => ({ seo: false, truoc: false }), ui: () => [{ t: 'tog', k: 'seo', label: '✂️ Mổ lấy thai cũ' }, { t: 'tog', k: 'truoc', label: '🥞 Nhau mặt TRƯỚC thấp' }], goal: s => s.seo && s.truoc,
   draw: s => {
     const P = (lx, ly) => [+(170 + (lx - 130) * .95).toFixed(1), +(40 + ly * .95).toFixed(1)];
     let o = card(20, 20, 300, 316, '#fffdfa') + ZS.uterusSag({ x: 170, y: 40, k: .95 });
     if (s.truoc) { const pts = [[56, 120], [60, 170], [96, 200], [128, 207]].map(p => P(...p)).map(p => p.join(' ')).join(' L'); o += `<path d="M${pts}" fill="none" stroke="${C.placD}" stroke-width="25" stroke-linecap="round"/><path d="M${pts}" fill="none" stroke="#e66d78" stroke-width="20" stroke-linecap="round"/>`; }
     if (s.seo) o += `<path d="M${P(36, 176).join(' ')} l18 6" stroke="${C.ink}" stroke-width="4" stroke-linecap="round"/>` + Th(...P(20, 196), 'sẹo mổ', { a: 'end', s: 12.5 });
     if (s.seo && s.truoc) o += `<circle cx="${P(50, 182)[0]}" cy="${P(50, 182)[1]}" r="26" fill="none" stroke="${C.red}" stroke-width="3" class="pulse"/>`;
-    o += tcard('!seo', 332, 20, 218, 70, s.seo, ['✂️ Mổ lấy thai cũ', 'sẹo đoạn dưới mặt trước']) + tcard('!truoc', 332, 100, 218, 70, s.truoc, ['🥞 Nhau mặt TRƯỚC thấp', 'đè lên vùng sẹo']);
+    o += card(332, 20, 218, 316) + T(441, 54, s.seo ? '✂️ có sẹo mổ cũ' : '○ chưa có sẹo', { s: 14, c: s.seo ? C.redD : C.mute }) + T(441, 76, s.seo ? 'sẹo đoạn dưới mặt trước' : 'bật ✂️ ở trên', { s: 12, c: C.mute }) + T(441, 118, s.truoc ? '🥞 nhau mặt trước thấp' : '○ nhau chưa thấp', { s: 14, c: s.truoc ? C.redD : C.mute }) + T(441, 140, s.truoc ? 'đè lên vùng sẹo' : 'bật 🥞 ở trên', { s: 12, c: C.mute });
     o += s.seo && s.truoc ? ZS.fade(verdict(332, 186, 218, false, 'Nghĩ PAS!', 'khảo sát có chủ đích') + T(441, 276, '“Biên bản mổ', { s: 12.5 }) + T(441, 296, 'có thể xem được không?”', { s: 12.5 }), true) : '';
     return o;
   },
-  say: s => s.seo && s.truoc ? ['worry', 'Sẹo mổ cũ + nhau **mặt trước thấp đè lên sẹo** → hỏi và **khảo sát PAS có chủ đích**. Không hứa chắc “không PAS” chỉ vì ít lần mổ.'] : ['happy', 'Bật **cả hai** thẻ bên phải 👆']
+  say: s => s.seo && s.truoc ? ['worry', 'Sẹo mổ cũ + nhau **mặt trước thấp đè lên sẹo** → hỏi và **khảo sát PAS có chủ đích**. Không hứa chắc “không PAS” chỉ vì ít lần mổ.'] : ['happy', 'Bật **cả hai** công tắc ở trên 👆']
 });
 B['nguy-co-ntd'] = [
   { t: 'Nguy cơ: gợi ý xác suất', kit: 'bn-ng' },
@@ -94,9 +94,19 @@ kit('bn-sosanh', {
   init: () => ({ k: '', seen: '' }), ui: () => [{ t: 'seg', k: 'k', opts: [['ntd', '🥞 Nhau tiền đạo'], ['nbn', '🌩️ Nhau bong non']] }], after: s => markSeen(s, s.k), goal: s => seen(s, 'ntd') && seen(s, 'nbn'),
   draw: s => {
     let o = card(20, 20, 330, 316, '#fffdfa');
-    if (s.k === 'ntd') o += UT(180, 40, .95, -20, { bleed: true }).svg;
-    else if (s.k === 'nbn') { const U = UT(180, 40, .95, 50); o += `<g class="pulse">${U.svg}</g><ellipse cx="236" cy="${140}" rx="20" ry="44" fill="url(#gClot)" opacity=".95"/>` + Th(260, 120, 'máu kẹt sau nhau', { a: 'start', s: 12.5, c: C.clotD }); }
-    else o += T(185, 180, '👆 chọn ở trên', { s: 14, c: C.soft });
+    o += `<image href="assets/reference-abruption.png" x="25" y="30" width="320" height="240" preserveAspectRatio="xMidYMid meet"/>`;
+    if (s.k === 'nbn') {
+      o += `<rect x="35" y="45" width="135" height="150" rx="14" fill="${C.red}" fill-opacity=".15" stroke="${C.red}" stroke-width="2.5" class="pulse"/>`;
+      o += call(75, 80, 35, 226, 'máu tụ giam kẹt sau nhau', C.redD);
+      o += Th(185, 275, '→ TC gồng cứng như gỗ, đau liên tục', { s: 12.5, c: C.redD });
+    } else if (s.k === 'ntd') {
+      o += `<rect x="180" y="85" width="145" height="145" rx="14" fill="${C.green}" fill-opacity=".15" stroke="${C.green}" stroke-width="2.5" class="pulse"/>`;
+      o += call(245, 150, 185, 226, 'mép nhau thấp rỉ qua CTC', C.green);
+      o += Th(185, 275, '→ máu thoát tự do, TC mềm không đau', { s: 12.5, c: C.green });
+    } else {
+      o += T(185, 275, '👆 chọn Pancake hoặc Sấm sét ở trên', { s: 13, c: C.soft });
+    }
+    o += Th(185, 302, 'Giải phẫu: NBN (trái) vs NTĐ (phải)', { s: 11, c: C.mute });
     const M = { ntd: [['máu', 'thoát ra ngoài'], ['tử cung', 'mềm'], ['đau', 'thường không'], ['tim thai', 'ổn nếu mẹ ổn']], nbn: [['máu', 'có thể kẹt kín'], ['tử cung', 'gồng cứng'], ['đau', 'liên tục'], ['tim thai', 'thường xấu']] }[s.k];
     o += card(362, 20, 188, 316) + (M ? M.map(([a, b], i) => T(380, 70 + i * 62, a, { a: 'start', s: 12.5, c: C.mute }) + `<g class="fadein">${T(380, 92 + i * 62, b, { a: 'start', s: 15, c: s.k === 'nbn' ? C.redD : C.ink })}</g>`).join('') : '');
     return o;
@@ -141,7 +151,7 @@ kit('bn-kham', {
   },
   say: s => seen(s, 'tvs') && seen(s, 'ngon') ? ['wow', '**TVS** đúng kỹ thuật: đầu dò ở âm đạo, không vào lỗ trong → thấy rõ mép nhau, **an toàn**. **Ngón tay** qua lỗ trong khi chưa loại trừ NTĐ → **chảy máu ồ ạt**.'] : ['happy', 'Ra huyết cuối thai kỳ, chưa biết vị trí nhau. So **3 cách khám** 👆']
 });
-tfKit('bn-khq', [['Sợ TVS nên chỉ dùng siêu âm bụng', false], ['Dùng ngón tay để “xác nhận” nhau tiền đạo', false], ['Mỏ vịt nhẹ nhàng tìm nguồn thấp là việc khác', true], ['Mẹ bất ổn: hồi sức trước, không chờ đủ khám', true]], 'Không để **nỗi sợ TVS** bỏ phương tiện tốt; không dùng **tay** để xác nhận NTĐ. Người bất ổn: **hồi sức trước**.');
+tfKit('bn-khq', [['Sợ TVS nên chỉ dùng siêu âm bụng', false, 'TVS đúng kỹ thuật vừa an toàn vừa chính xác hơn; đừng bỏ vì sợ.'], ['Dùng ngón tay để “xác nhận” nhau tiền đạo', false, 'Không khám ngón tay khi chưa loại trừ NTĐ: dễ chảy máu ồ ạt.'], ['Mỏ vịt nhẹ nhàng tìm nguồn thấp là việc khác', true, 'Nhìn nguồn chảy thấp bằng mỏ vịt nhẹ nhàng là việc khác với khám ngón tay.'], ['Mẹ bất ổn: hồi sức trước, không chờ đủ khám', true, 'Mẹ bất ổn thì ABC và gọi đội trước; khảo sát làm sau.']], 'Không để **nỗi sợ TVS** bỏ phương tiện tốt; không dùng **tay** để xác nhận NTĐ. Người bất ổn: **hồi sức trước**.');
 B['chan-doan-ntd'] = [
   { t: 'Ba cách khám: cái nào an toàn?', kit: 'bn-kham' },
   { t: 'Bốn câu về thăm khám', kit: 'bn-khq' }
@@ -150,19 +160,25 @@ B['chan-doan-ntd'] = [
 // ═════════ PAS
 const PASL = [['Bình thường', 'có lớp màng rụng ngăn cách', C.green], ['Accreta', 'bám thẳng vào bề mặt cơ', '#b8860b'], ['Increta', 'xâm nhập vào cơ', '#c0561a'], ['Percreta', 'xuyên qua thanh mạc → bàng quang', C.redD]];
 kit('bn-pas', {
-  init: () => ({ d: 0 }), ui: () => [{ t: 'range', k: 'd', label: '🌱 Gai nhau ăn sâu', min: 0, max: 3, step: 1, unit: '/3' }], goal: s => s.d >= 3,
+  init: () => ({ d: 0 }), ui: () => [{ t: 'range', k: 'd', label: '🌱 Mức độ xâm lấn (PAS)', min: 0, max: 3, step: 1, unit: '/3' }], goal: s => s.d >= 3,
   draw: s => {
-    const d = s.d, dep = [0, 18, 80, 150][d];
-    let o = card(20, 20, 330, 316, '#fffdfa') + `<path d="M40 60 Q185 30 330 60 V110 Q185 90 40 110Z" fill="url(#gPlac)" stroke="${C.placD}"/>` + T(185, 82, 'bánh nhau', { s: 13, c: '#fff' });
-    o += d === 0 ? `<rect x="40" y="110" width="290" height="12" fill="${C.decid}"/>` + Th(320, 120, 'màng rụng', { a: 'end', s: 11.5, c: C.myoD }) : '';
-    o += `<rect x="40" y="${d ? 110 : 122}" width="290" height="${d ? 150 : 138}" fill="url(#gMyo)"/><rect x="40" y="260" width="290" height="12" fill="url(#gSer)"/><path d="M60 286 Q185 330 310 286 V330 H60Z" fill="${C.bladder}" stroke="#86b6e6"/>` + Th(185, 318, 'bàng quang', { s: 12.5, c: '#2b6cb0' }) + Th(320, 200, 'cơ', { a: 'end', s: 12, c: C.myoD }) + Th(320, 268, 'thanh mạc', { a: 'end', s: 11.5, c: '#7b6ba3' });
-    if (d) o += [80, 130, 185, 240, 290].map(x => `<path d="M${x} 110 q${x % 2 ? 6 : -6} ${dep / 2} 0 ${dep + (d === 3 ? 24 : 0)}" fill="none" stroke="${C.placD}" stroke-width="7" stroke-linecap="round"/>`).join('');
-    const L = PASL[d];
-    o += card(362, 20, 188, 316) + `<g class="${ZS.fresh(s, z => z.d === d) ? 'fadein' : ''}">${T(456, 70, L[0], { s: 19, c: L[2] })}${ZS.wrap(L[1], 20).map((l, i) => T(456, 98 + i * 18, l, { s: 12.5, c: C.mute })).join('')}</g>`;
-    o += T(456, 220, 'mô tả MỨC xâm lấn', { s: 12.5 }) + T(456, 240, 'không tự phân loại', { s: 12, c: C.mute }) + T(456, 258, 'chỉ bằng màu siêu âm', { s: 12, c: C.mute });
+    const d = s.d, L = PASL[d], col = L[2];
+    const BOX = [[77, 100, 73, 101], [150, 100, 69, 101], [219, 100, 67, 101], [286, 100, 67, 133]];
+    const bx = BOX[d];
+    let o = card(20, 20, 330, 316, '#fffdfa');
+    o += `<image href="assets/reference-pas.png" x="24" y="36" width="332" height="201" preserveAspectRatio="xMidYMid meet"/>`;
+    o += `<rect x="${bx[0]}" y="${bx[1]}" width="${bx[2]}" height="${bx[3]}" rx="8" fill="${col}" fill-opacity=".12" stroke="${col}" stroke-width="2.6" class="pulse"/>`;
+    o += Th(70, 142, 'Nội mạc', { a: 'end', s: 11, c: C.myoD }) + Th(70, 176, 'Lớp cơ', { a: 'end', s: 11, c: C.myoD }) + Th(70, 204, 'Thanh mạc', { a: 'end', s: 11, c: '#7b6ba3' });
+    if (d === 0) o += Th(190, 268, '✓ Màng rụng đáy (decidua) ngăn cách', { s: 12.5, c: C.green }) + T(190, 292, 'Có mặt phẳng bóc tách tự nhiên sau sinh', { s: 12, c: C.mute });
+    else if (d === 1) o += Th(190, 268, '⚠️ Mất màng rụng đáy → gai nhau bám vào cơ', { s: 12.5, c: '#b8860b' }) + T(190, 292, 'Accreta: mất mặt phẳng bóc tách tự nhiên', { s: 12, c: C.mute });
+    else if (d === 2) o += Th(190, 268, '⚠️ Gai nhau ăn sâu vào lớp cơ tử cung', { s: 12.5, c: '#c0561a' }) + T(190, 292, 'Increta: cố bóc gây xé cơ, xuất huyết ồ ạt', { s: 12, c: C.redD });
+    else o += Th(190, 260, '🚨 Gai nhau xuyên thủng thanh mạc tử cung!', { s: 12.5, c: C.redD }) + `<path d="M319 233 v20" stroke="${C.red}" stroke-width="3" marker-end="url(#arR)"/>` + Th(190, 282, '→ xâm lấn bàng quang / vùng chậu', { s: 12, c: C.redD }) + T(190, 304, 'CẤM CỐ BÓC NHAU! Đa chuyên khoa mổ khẩn', { s: 12, c: C.redD });
+    o += card(362, 20, 188, 316) + `<g class="${ZS.fresh(s, z => z.d === d) ? 'fadein' : ''}">${T(456, 68, L[0], { s: 18, c: col })}${ZS.wrap(L[1], 20).map((l, i) => T(456, 94 + i * 18, l, { s: 12.5, c: C.mute })).join('')}</g>`;
+    o += `<rect x="376" y="160" width="160" height="74" rx="14" fill="${d === 0 ? C.mint : '#ffd0d8'}"/>` + T(456, 186, d === 0 ? 'Bóc nhau tự nhiên' : 'MẤT MẶT PHẲNG', { s: 13, c: d === 0 ? C.green : C.redD }) + T(456, 208, d === 0 ? '✓ an toàn' : 'cố bóc = chảy máu dữ dội', { s: 11.5, c: d === 0 ? C.green : C.redD });
+    o += T(456, 264, 'Khảo sát có chủ đích,', { s: 12, c: C.mute }) + T(456, 284, 'không tự phân loại', { s: 12, c: C.mute }) + T(456, 304, 'chỉ bằng màu siêu âm', { s: 12, c: C.mute });
     return o;
   },
-  say: s => s.d >= 3 ? ['ouch', 'PAS: **accreta** bám bề mặt cơ · **increta** vào cơ · **percreta** xuyên thanh mạc, có thể tới **bàng quang**. Mất mặt phẳng tách → bóc nhau chảy máu dữ dội.'] : ['happy', 'Kéo thanh **🌱 Gai nhau ăn sâu** từng mức 👆']
+  say: s => s.d >= 3 ? ['ouch', 'PAS: **accreta** bám bề mặt cơ · **increta** vào cơ · **percreta** xuyên thanh mạc, có thể tới **bàng quang**. Mất mặt phẳng tách → bóc nhau chảy máu dữ dội.'] : ['happy', 'Kéo thanh **🌱 Mức độ xâm lấn (PAS)** từng mức trên sơ đồ giải phẫu 👆']
 });
 const PASP = [['dck', '👥 Đội đa chuyên khoa'], ['mau', '🩸 Máu & chế phẩm sẵn'], ['gm', '😷 Gây mê hồi sức'], ['pm', '🏥 Phòng mổ, cơ sở phù hợp'], ['sa', '🖥 Siêu âm chuyên sâu ± MRI'], ['khong', '✋ KHÔNG cố bóc nhau']];
 kit('bn-pasp', {
@@ -213,7 +229,7 @@ kit('bn-tv', {
   draw: s => {
     let o = TV.map(([k, t], i) => pcard('!' + k, 20, 20 + i * 80, 200, 70, seen(s, k), seen(s, k) && s._k === k, [t])).join('');
     const last = TV.find(([k]) => s._k === k && seen(s, k)) || TV.filter(([k]) => seen(s, k)).slice(-1)[0];
-    o += card(232, 20, 318, 316, '#fff') + `<g transform="translate(250 40)">${pic('sv-phu-nu.png', 210, 140, 52, 160)}</g>`;
+    o += card(232, 20, 318, 316, '#fff') + `<g transform="translate(250 40)">${pic('sv-phu-nu.png', 203, 118, 42, 150)}${T(224, 282, 'Người bệnh', { s: 11.5, c: C.mute })}</g>`;
     if (last) o += `<g class="fadein"><rect x="246" y="40" width="290" height="${ZS.wrap(last[2], 36).length * 20 + 24}" rx="16" fill="${C.lav}"/>${ZS.wrap(last[2], 36).map((l, i) => T(258, 64 + i * 20, l, { a: 'start', s: 13 })).join('')}</g>`;
     else o += T(390, 120, '👆 chạm từng thẻ bên trái', { s: 13.5, c: C.soft });
     return o;
@@ -223,7 +239,7 @@ kit('bn-tv', {
 kit('bn-teach', {
   init: () => ({ tb: false }), ui: () => [{ t: 'tog', k: 'tb', label: '🔁 Mời chị nhắc lại' }], goal: s => s.tb,
   draw: s => {
-    let o = card(20, 20, 530, 316, '#fffdfa') + pic('sv-phu-nu.png', 50, 50, 70, 250) + pic('sv-phu-nu.png', 450, 50, 70, 250);
+    let o = card(20, 20, 530, 316, '#fffdfa') + pic('sv-phu-nu.png', 50, 50, 70, 250) + pic('sv-phu-nu.png', 450, 50, 70, 250) + T(85, 316, 'Bác sĩ', { s: 12.5, c: C.mute }) + T(485, 316, 'Người bệnh', { s: 12.5, c: C.mute });
     o += `<rect x="140" y="50" width="290" height="80" rx="18" fill="${C.sky}"/>` + T(285, 84, '“Chị nhắc lại giúp em: khi nào', { s: 14 }) + T(285, 106, 'cần vào viện ngay nhé?”', { s: 14 });
     if (s.tb) o += `<g class="fadein"><rect x="140" y="150" width="290" height="120" rx="18" fill="${C.mint}"/>${['ra huyết lại', 'đau bụng / gò', 'choáng → không tự lái xe', 'con máy ít'].map((t, i) => T(160, 178 + i * 24, '✓ ' + t, { a: 'start', s: 13.5 })).join('')}</g>` + T(285, 300, 'hai bên hiểu giống nhau → kế hoạch mới an toàn', { s: 13, c: C.green });
     return o;

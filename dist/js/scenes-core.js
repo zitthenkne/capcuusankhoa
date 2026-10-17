@@ -55,7 +55,10 @@ ZS.plot = o => {
 };
 // ───── hình giải phẫu dùng chung
 // đáy chậu/tử cung nhìn dọc (sagittal) nhẹ nhàng: thân, đoạn dưới, cổ tử cung. o: {x,y,k}
-ZS.uterusSag = (o = {}) => { const { x = 280, y = 30, k = 1, cav = '#fffafc' } = o; return `<g transform="translate(${x} ${y}) scale(${k}) translate(-130 0)"><path d="M26 118 Q18 18 130 10 Q242 18 234 118 Q230 190 168 226 L164 262 H96 L92 226 Q30 190 26 118Z" fill="url(#gMyo)" stroke="${C.myoD}" stroke-width="2.5" stroke-linejoin="round"/><path d="M52 118 Q46 40 130 34 Q214 40 208 118 Q204 176 156 208 L152 262 H108 L104 208 Q56 176 52 118Z" fill="${cav}" stroke="${C.decid}" stroke-width="5" stroke-linejoin="round"/></g>`; };
+ZS.uterusSag = (o = {}) => { const { x = 280, y = 30, k = 1, cav = '#fffafc' } = o;
+  const OUT = 'M26 118 Q18 18 130 10 Q242 18 234 118 Q230 190 168 226 L164 262 H96 L92 226 Q30 190 26 118Z', INN = 'M52 118 Q46 40 130 34 Q214 40 208 118 Q204 176 156 208 L152 262 H108 L104 208 Q56 176 52 118Z';
+  const fib = f => `<path d="${OUT}" transform="translate(130 120) scale(${f}) translate(-130 -120)" fill="none" stroke="#e98aa6" stroke-width="${(1.1 / f / k * Math.max(k, .5)).toFixed(2)}" opacity=".42" stroke-linejoin="round"/>`;
+  return `<g transform="translate(${x} ${y}) scale(${k}) translate(-130 0)"><path d="${OUT}" fill="url(#gMyo)" stroke="${C.myoD}" stroke-width="2.5" stroke-linejoin="round"/>${fib(.93)}${fib(.86)}<path d="M40 112 Q36 40 88 22" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".38"/><path d="${INN}" fill="${cav}" stroke="${C.decid}" stroke-width="5" stroke-linejoin="round"/><path d="M130 52 Q130 120 130 200" stroke="#f3d9e1" stroke-width="1.2" stroke-dasharray="2 5" fill="none" opacity=".8"/><path d="M110 226 H150 M112 238 H148 M114 250 H146" stroke="#e8b3c4" stroke-width="1.4" stroke-linecap="round" opacity=".7"/><path d="M108 222 Q130 232 152 222" fill="none" stroke="${C.myoD}" stroke-width="2" opacity=".5"/></g>`; };
 ZS.defs = `<defs>
 <linearGradient id="gMyo" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f9bdcb"/><stop offset="1" stop-color="#ee94ad"/></linearGradient>
 <linearGradient id="gRed" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff8f93"/><stop offset="1" stop-color="#e5484d"/></linearGradient>
@@ -66,6 +69,8 @@ ZS.defs = `<defs>
 <linearGradient id="gSkin" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe7d6"/><stop offset="1" stop-color="#ffcfae"/></linearGradient>
 <linearGradient id="gSer" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#dcd2fb"/><stop offset="1" stop-color="#b9a7f3"/></linearGradient>
 <filter id="blr"><feGaussianBlur stdDeviation="3.2"/></filter>
+<filter id="tim"><feColorMatrix type="matrix" values="0.55 0 0 0 0  0 0.62 0 0 0.05  0 0 1 0 0.22  0 0 0 1 0"/></filter>
+<filter id="lanh"><feColorMatrix type="matrix" values="0.74 0 0 0 0  0 0.84 0 0 0.04  0.08 0.08 1 0 0.14  0 0 0 1 0"/></filter>
 <marker id="ar" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" refX="10" refY="7" orient="auto"><path d="M2.5 2.5L10 7L2.5 11.5" fill="none" stroke="${C.ink}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></marker>
 <marker id="arR" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" refX="10" refY="7" orient="auto"><path d="M2.5 2.5L10 7L2.5 11.5" fill="none" stroke="${C.redD}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></marker>
 <marker id="arG" markerUnits="userSpaceOnUse" markerWidth="14" markerHeight="14" refX="10" refY="7" orient="auto"><path d="M2.5 2.5L10 7L2.5 11.5" fill="none" stroke="#2fa376" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></marker></defs>`;
