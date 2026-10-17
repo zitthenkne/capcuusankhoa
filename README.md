@@ -1,4 +1,4 @@
-# zitthenk học Cấp cứu Sản khoa
+# zitthenk học cấp cứu sản khoa
 
 Web tĩnh học chương 6 (ELOs Topic 46 + giáo trình UMP). Mở `index.html` ở thư mục này hoặc `dist/index.html`; không cần cài đặt hay build.
 

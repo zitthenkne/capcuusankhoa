@@ -1,4 +1,4 @@
-# zitthenk học Cấp cứu Sản khoa — chương 6
+# zitthenk học cấp cứu sản khoa — chương 6
 
 ## Đã xong
 - [x] Gom nguồn, loại trùng, đối chiếu y khoa (research/).

@@ -22,10 +22,10 @@ h1,h2,h3{font-family:var(--disp);margin:0;line-height:1.15}
 
 /* ───── thanh trên */
 .topbar{flex:none;height:var(--top);display:flex;align-items:center;gap:12px;padding:0 clamp(10px,2vw,22px);background:rgba(255,253,250,.92);border-bottom:1px solid var(--pink-d);position:relative;z-index:5}
-.brand{display:flex;align-items:center;gap:9px;text-decoration:none;font:700 20px var(--disp);white-space:nowrap}
-.brand img{width:38px;height:38px;border-radius:12px;box-shadow:0 1px 6px rgba(74,63,99,.12)}
+.brand{display:flex;align-items:center;gap:8px;text-decoration:none;font:700 clamp(14px,1.9vw,19px) var(--disp);white-space:nowrap;flex-shrink:0}
+.brand img{width:36px;height:36px;border-radius:11px;box-shadow:0 1px 6px rgba(74,63,99,.12);flex-shrink:0}
 .brand i{font-style:normal;background:linear-gradient(transparent 52%,var(--butter-d) 52%,var(--butter-d) 90%,transparent 90%);padding:0 3px}
-.brand small{font:700 11px var(--font);color:var(--muted);display:block;margin-top:-4px;letter-spacing:.02em}
+.brand span{white-space:nowrap}
 .where{flex:1;min-width:0;text-align:center;font:800 14px var(--disp);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tnav{display:flex;gap:6px}
 .tnav a,.tools .ibtn,.stars{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:36px;padding:0 12px;border-radius:99px;background:#fff;border:1px solid var(--lav-d);box-shadow:0 1px 6px rgba(74,63,99,.07);font:700 13.5px var(--disp);text-decoration:none;white-space:nowrap}
@@ -167,7 +167,7 @@ h1,h2,h3{font-family:var(--disp);margin:0;line-height:1.15}
 .hero{display:flex;gap:22px;align-items:center;background:var(--c);border:1px solid var(--c-d);border-radius:26px;box-shadow:0 2px 10px rgba(74,63,99,.09);padding:18px clamp(16px,3vw,34px);position:relative;margin-top:6px}
 .hero:before{content:"";position:absolute;top:-9px;left:40px;width:80px;height:18px;border-radius:6px;transform:rotate(-3deg);background:repeating-linear-gradient(-45deg,rgba(166,214,255,.9) 0 8px,rgba(219,238,255,.9) 8px 16px)}
 .hero .mas{flex:none;width:116px;height:124px}
-.hero h1{font-size:clamp(26px,4vw,42px)}
+.hero h1{font-size:clamp(19px,3.2vw,36px);white-space:nowrap;letter-spacing:-.01em}
 .hero p{margin:6px 0 12px;font-weight:700;max-width:520px}
 .hero .go{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .ring-p{flex:none;width:104px;height:104px;margin-left:auto;position:relative}
@@ -270,7 +270,7 @@ dialog::backdrop{background:rgba(74,63,99,.38)}
 @media (max-width:900px){
   :root{--top:54px;--bot:62px}
   .where,.tnav{display:none}
-  .brand{font-size:18px}.brand small{display:none}.brand img{width:36px;height:36px}
+  .brand{font-size:clamp(13.5px,2.8vw,17px)}.brand img{width:32px;height:32px}
   .tools{margin-left:auto}
   .scene{display:flex;flex-direction:column;gap:12px}.viz,.ctl{display:contents}.fig{order:1}.sim{order:2}.say{order:3}.tabs{order:4}.pane{order:5}
   .fig svg{max-height:clamp(200px,36vh,330px)}
@@ -326,7 +326,7 @@ dialog::backdrop{background:rgba(74,63,99,.38)}
 .osce .scene{align-items:start}.osce .ctl{max-height:calc(100dvh - 250px);overflow:auto;padding:2px 4px 8px 2px}
 @media (max-width:900px){.o-hero{flex-wrap:wrap}.o-hero .mas{width:72px;height:80px}.osce .ctl{max-height:none;overflow:visible}.o-bar{grid-template-columns:1fr 70px 40px}}
 
-@media (max-width:480px){.brand{font-size:16px;gap:6px}.brand img{width:32px;height:32px}.tools{gap:5px}.tools .ibtn{min-width:36px;min-height:36px;font-size:17px!important}.stars{padding:0 9px!important;min-height:36px!important;font-size:13px!important}.topbar{gap:6px}.botbar #next{max-width:54vw;overflow:hidden;text-overflow:ellipsis}.botbar .btn{padding:0 12px;font-size:15px}.nm{display:none}}
+@media (max-width:480px){.brand{font-size:clamp(11.5px,3.2vw,14px);gap:5px}.brand img{width:26px;height:26px}.hero h1{font-size:clamp(15px,4.6vw,20px);white-space:nowrap}.tools{gap:4px}.tools .ibtn{min-width:32px;min-height:32px;font-size:16px!important}.stars{padding:0 7px!important;min-height:32px!important;font-size:12px!important}.topbar{gap:4px}.botbar #next{max-width:54vw;overflow:hidden;text-overflow:ellipsis}.botbar .btn{padding:0 12px;font-size:15px}.nm{display:none}}
 
 .dc{background:#fff;border:1.2px solid var(--lav-d);border-radius:16px;margin:0 0 8px;padding:6px 12px}.dc summary{cursor:pointer;font-weight:800;list-style:none}.dc summary:after{content:' ▾';color:var(--muted)}.dc[open] summary:after{content:' ▴'}.dc>div{margin-top:6px;font-weight:600}.dc.one{font-weight:700}
 .deep-body{background:transparent;border:0;padding:0;max-height:48vh}
