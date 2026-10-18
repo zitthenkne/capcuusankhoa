@@ -6,7 +6,7 @@ const e = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&
 const plain = s => String(s || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
 const norm = s => plain(s).normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
 const md = t => e(t).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>'), clamp = (v, a, b) => Math.max(a, Math.min(b, v)), rand = a => a[Math.floor(Math.random() * a.length)];
-const fresh = () => ({ version: 1, done: [], beats: {}, answers: {}, bookmarks: [], notes: {}, rubrics: {}, last: L[0].id, sound: true });
+const fresh = () => ({ version: 1, done: [], beats: {}, answers: {}, bookmarks: [], notes: {}, rubrics: {}, last: L[0].id, sound: true, night: false });
 function sanitize(s) {
   if (!s || typeof s !== 'object' || Array.isArray(s) || s.version !== 1) throw Error('Không đúng định dạng tiến độ của sổ tay này.');
   const out = fresh();
@@ -14,12 +14,14 @@ function sanitize(s) {
   if (validIds.has(s.last)) out.last = s.last;
   if (s.beats && typeof s.beats === 'object' && !Array.isArray(s.beats)) for (const [k, v] of Object.entries(s.beats)) if (v === true && /^[a-z0-9-]{1,80}\/b\d{1,2}$/.test(k) && validIds.has(k.split('/')[0])) out.beats[k] = true;
   out.sound = s.sound !== false;
+  out.night = !!s.night;
   if (s.answers && typeof s.answers === 'object') for (const [id, a] of Object.entries(s.answers)) if (validIds.has(id) && a && Number.isInteger(a.choice) && a.choice >= 0 && a.choice < 3) out.answers[id] = { choice: a.choice, correct: a.choice === L.find(x => x.id === id).quiz.answer, attempts: Math.min(999, Math.max(1, Number(a.attempts) || 1)) };
   for (const k of ['notes', 'rubrics']) if (s[k] && typeof s[k] === 'object' && !Array.isArray(s[k])) for (const [id, v] of Object.entries(s[k])) { if (!/^[a-z0-9_-]{1,120}$/.test(id)) continue; if (k === 'notes' && typeof v === 'string') out[k][id] = v.slice(0, 20000); if (k === 'rubrics' && Array.isArray(v)) out[k][id] = v.filter(n => Number.isInteger(n) && n >= 0 && n < 100); }
   return out;
 }
 let state = fresh(), storageOK = true;
 try { const raw = localStorage.getItem(STORE); if (raw) state = sanitize(JSON.parse(raw)); } catch (err) { storageOK = false; }
+if (state.night) document.body.classList.add('night-mode');
 function save() { try { localStorage.setItem(STORE, JSON.stringify(state)); storageOK = true; } catch (err) { if (storageOK) toast('Trình duyệt không lưu được tiến độ. Bạn dùng nút “Lưu tiến độ” để giữ lại nha.'); storageOK = false; } updateTop(); }
 let toastTimer, audioCtx, caseTimer = null, remaining = 300, timerRunning = false, currentCaseId = '';
 function toast(message) { const t = $('#toast'); t.textContent = message; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2800); }
@@ -31,6 +33,8 @@ function sound(kind = 'pop') {
     if (kind === 'pop') t(520, 0, .09, 'sine', .06, 800);
     else if (kind === 'tick') t(660, 0, .04, 'sine', .03);
     else if (kind === 'chime') [523, 659, 784].forEach((f, i) => t(f, i * .1, .24));
+    else if (kind === 'bell') [440, 880].forEach((f, i) => t(f, i * .08, .55, 'sine', .08));
+    else if (kind === 'gong') [220, 277, 330].forEach((f, i) => t(f, 0, 1.2, 'triangle', .1, f * .96));
     else if (kind === 'buzz') t(170, 0, .22, 'square', .03, 105);
     else if (kind === 'tada') [523, 659, 784, 1047].forEach((f, i) => t(f, i * .09, .32, 'triangle', .07));
     else if (kind === 'click') { t(1900, 0, .018, 'square', .025, 700); t(420, .028, .05, 'triangle', .04, 300); }
@@ -171,19 +175,47 @@ function renderLesson(id, sub) {
   };
 
   // ── trang Y4 sâu / Hình thầy / Thử nhớ: trang đầy đủ, mọi thứ hiện sẵn
-  // ── trang tí hon: hình to + 1 việc để làm + 1 câu (không ô số, không khối chữ)
+  // ── trang tí hon: hình to + 1 việc để làm + 1 câu (hỗ trợ ask, chain sống có when, hl 2 chiều, clin, trap, note)
   if (isBeat) {
-    const bt = BEATS()[id][pi], kit = ZS.kits[bt.kit], S = Object.assign({}, kit.init(bt)), chain = window.ZS.chains?.[id + '/b' + (pi + 1)];
+    const bt = BEATS()[id][pi], kit = ZS.kits[bt.kit], S = Object.assign({}, kit.init(bt));
+    const rawChain = (typeof kit.chain === 'function' ? kit.chain(S, bt) : kit.chain) || bt.chain || window.ZS.chains?.[id + '/b' + (pi + 1)];
+    const normChain = raw => !raw ? [] : raw.map(it => typeof it === 'string' ? { t: it, hl: null, when: () => true } : it);
+    const chainItems = normChain(rawChain);
+    const ask = bt.ask || kit.ask, mode = bt.mode || kit.mode || 'thu';
+    if (mode === 'xem' && S.step == null) S.step = 0;
     const ok = () => (bt.goal || kit.goal)?.(S, bt);
     const bkey = id + '/' + sub; beatOk = !!state.beats[bkey]; let demoOn = false;
     const syncDone = () => { const on = !!state.beats[bkey], b = $('#donebtn'); if (b) { b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); b.textContent = on ? '✓ Xong' : '○ Xong?'; }
       const li = $('#bsteps li.cur'); if (li) { li.classList.toggle('done', on); const ic = li.querySelector('i'); if (ic) ic.textContent = on ? '✓' : String(pi + 1); } };
     const solvedTxt = () => { try { return kit.say(ZS.solve(kit, bt, l), bt, l)[1]; } catch (err) { return ''; } };
     const wordsOf = t => String(t).replace(/\*\*/g, '').toLowerCase().match(/[\p{L}\d]+/gu) || [];
-    const redundant = (ch, txt) => { const have = new Set(ch.flatMap(wordsOf)), w = wordsOf(txt); return !w.length || w.filter(x => have.has(x)).length / w.length >= .74; };
+    const redundant = (ch, txt) => { const have = new Set(ch.map(x => x.t || x).flatMap(wordsOf)), w = wordsOf(txt); return !w.length || w.filter(x => have.has(x)).length / w.length >= .74; };
     const ahaKey = id + '/' + pi; let ahaTxt = ahaCache[ahaKey] || (ahaCache[ahaKey] = solvedTxt());
-    const chainHtml = ch => ch.map((t, i) => `<div class="cn c${i}"><em>${['👀 Thấy', '⚙️ Vì', '✅ Nên'][i]}</em><span>${gl(md(t))}</span></div>`).join('<div class="ar" aria-hidden="true">▼</div>');
+    const chainHtml = (chList, isDone) => chList.map((it, i) => {
+      const active = isDone || (typeof it.when === 'function' ? it.when(S) : !!it.when);
+      const hlAttr = it.hl ? ` data-hl="${e(it.hl)}"` : '';
+      return `<div class="cn c${i % 3} ${active ? 'active' : 'pending'}"${hlAttr}><em>${['👀 Thấy', '⚙️ Vì', '✅ Nên', '💡 Mắt xích'][Math.min(i, 3)]}</em><span>${active ? gl(md(it.t)) : '<span class="lk-text">... (tiếp tục thao tác để mở mắt xích)</span>'}</span></div>`;
+    }).join('<div class="ar" aria-hidden="true">▼</div>');
     const lockHtml = '<div class="cn lk"><em>👀 Thấy</em><span></span></div><div class="ar" aria-hidden="true">▼</div><div class="cn lk"><em>⚙️ Vì</em><span></span></div><div class="ar" aria-hidden="true">▼</div><div class="cn lk"><em>✅ Nên</em><span></span></div>';
+
+    const renderAsk = () => {
+      if (!ask) return '';
+      const askKey = ask.key || 'guess', picked = S[askKey], done = beatOk || !!ok();
+      const normOpts = (ask.opts || []).map((o, idx) => {
+        if (Array.isArray(o)) return { v: o[0], lbl: o[1], ok: ask.good ? ask.good(o[0]) : null, fb: '' };
+        if (typeof o === 'object') return { v: o.v || o.val || String(idx), lbl: o.t || o.lbl || o.label || '', ok: o.ok, fb: o.fb || '' };
+        return { v: String(o), lbl: String(o), ok: null, fb: '' };
+      });
+      const curOpt = normOpts.find(o => o.v === picked);
+      const isCorrect = done ? (curOpt?.ok != null ? curOpt.ok : (ask.good ? ask.good(picked) : null)) : null;
+      const feedbackTxt = (curOpt && curOpt.fb) ? curOpt.fb : (typeof ask.why === 'function' ? ask.why(picked) : ask.why || '');
+      return `<div class="ask-wrap">
+        <div class="ask-q">🤔 <b>Dự đoán trước khi làm:</b> ${gl(md(ask.q))}</div>
+        <div class="ask-opts">${normOpts.map(o => `<button type="button" class="ask-btn ${picked === o.v ? 'cur' : ''}" data-ask="${e(o.v)}"><span>${e(o.lbl)}</span></button>`).join('')}</div>
+        ${picked ? `<div class="ask-fb ${isCorrect === true ? 'ok' : isCorrect === false ? 'no' : ''}">${done && isCorrect != null ? (isCorrect ? '🎉 <b>Bạn đoán đúng!</b> ' : '💡 <b>Chưa chuẩn:</b> ') : '✓ Đã chọn dự đoán · hãy thử trên hình để chứng minh 👇'}${done && feedbackTxt ? ' · ' + gl(md(feedbackTxt)) : ''}</div>` : ''}
+      </div>`;
+    };
+
     // chỉ tay 👆 đúng chỗ cần làm: chỗ chạm đầu tiên trong hình, hoặc điều khiển đầu tiên trên thanh
     const aimHand = () => { const fig = $('.fig'), hand = $('.fig>.coach'); if (!fig || !hand) return; if (beatOk || S._k) { hand.remove(); return; } const t = $('#art .tap, #art [data-scrub], #art [data-drag]') || $('#sim button, #sim input'); if (!t) return;
       const fr = fig.getBoundingClientRect(), r = t.getBoundingClientRect(); hand.style.right = 'auto'; hand.style.top = 'auto'; hand.style.left = clamp(r.left - fr.left + r.width * .5 - 6, 8, fr.width - 40) + 'px'; hand.style.bottom = clamp(fr.bottom - r.top - r.height * .45 - 4, 6, fr.height - 36) + 'px'; };
@@ -196,15 +228,38 @@ function renderLesson(id, sub) {
       if (done) { if (!ahaTxt) ahaTxt = ahaCache[ahaKey] = text; mood = 'wow'; text = ok() ? rand(['Làm được rồi! ✓ Đọc **À ra vậy** bên dưới 👇', 'Chuẩn! ✓ Xem **À ra vậy** bên dưới 👇', 'Xong! ✓ Nối **nguyên nhân → kết quả** bên dưới 👇']) : 'Bạn đã xong trang này ✓ Thử lại bất cứ lúc nào, hoặc đọc **À ra vậy** 👇'; }
       $('#mas').innerHTML = mascot(mood); const b = $('#bub'); b.innerHTML = gl(md(text));
       $('#todo').className = 'todo' + (done ? ' done' : ''); $('#todo').textContent = done ? '✅ Xong việc' : '👆 Việc của bạn';
+      const askEl = $('#ask-slot'); if (askEl) askEl.innerHTML = renderAsk();
       const aha = $('#aha'); const was = aha.classList.contains('open'); aha.classList.toggle('open', done); aha.classList.toggle('locked', !done);
-      $('#chain').innerHTML = done && chain ? chainHtml(chain) : lockHtml;
-      $('#detail').innerHTML = done ? (chain ? (redundant(chain, ahaTxt) ? '' : '<small>📌 Ghi nhớ thêm</small>' + gl(md(ahaTxt))) : gl(md(ahaTxt))) : '<span class="lockmsg">🔒 Làm xong việc trên hình để mở</span>';
+      $('#chain').innerHTML = (done || chainItems.some(it => (typeof it.when === 'function' ? it.when(S) : !!it.when))) && chainItems.length ? chainHtml(chainItems, done) : lockHtml;
+      const clinBox = (kit.clin || bt.clin) ? `<div class="clin-box"><span class="clin-ic">🩺</span><div><b>Lâm sàng:</b> ${gl(md(kit.clin || bt.clin))}</div></div>` : '';
+      const trapBox = (kit.trap || bt.trap) ? `<div class="trap-box"><span class="trap-ic">⚠️</span><div><b>Bẫy:</b> ${gl(md(kit.trap || bt.trap))}</div></div>` : '';
+      const noteBox = (kit.note || bt.note) ? `<div class="note-box"><span class="note-ic">📌</span><div><b>Ghi nhớ:</b> ${(kit.note || bt.note).map(n => gl(md(n.t || n))).join(' · ')}</div></div>` : '';
+      const extraBoxes = clinBox + trapBox + noteBox;
+      $('#detail').innerHTML = done ? (chainItems.length ? (redundant(chainItems, ahaTxt) ? '' : '<small>📌 Ghi nhớ thêm</small>' + gl(md(ahaTxt))) + extraBoxes : gl(md(ahaTxt)) + extraBoxes) : '<span class="lockmsg">🔒 Làm xong việc trên hình để mở</span>';
       if (done && !was) { aha.classList.remove('pop'); void aha.offsetWidth; aha.classList.add('pop'); if (innerWidth <= 900) setTimeout(() => aha.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 250); }
       if (bump) { b.classList.remove('bump'); void b.offsetWidth; b.classList.add('bump'); }
       requestAnimationFrame(aimHand);
     };
-    const sim = () => { const cs = kit.ui(S, bt); $('#sim').hidden = !cs.length; $('#sim').innerHTML = cs.map((c, i) => ctlHtml(c, i, S)).join(''); requestAnimationFrame(() => { $('.fig')?.style.setProperty('--simh', (cs.length ? $('#sim').offsetHeight : 0) + 'px'); aimHand(); }); };
-    $('#stage').innerHTML = `<article class="lesson tihon">${head}<div class="bscene"><figure class="fig"><button class="done-tag ${state.beats[bkey] ? 'on' : ''}" id="donebtn" type="button" aria-pressed="${!!state.beats[bkey]}" title="Huy hiệu xong — bấm để tự đánh dấu / bỏ đánh dấu">${state.beats[bkey] ? '✓ Xong' : '○ Xong?'}</button><div class="sim" id="sim"></div><div class="artw enter"><div id="art"></div></div><button class="zoom" id="zoom-fig" aria-label="Phóng to hình">⤢</button><span class="coach">👆</span></figure><div class="bside"><div class="task"><div class="trow"><b class="todo" id="todo">👆 Việc của bạn</b><button class="demo" id="demo" type="button" title="Xem bàn tay ma làm mẫu">▶ Xem mẫu</button></div><div class="say"><div id="mas"></div><div class="bub" id="bub" aria-live="polite"></div></div></div><section class="aha locked" id="aha" aria-live="polite"><h3>💡 À ra vậy</h3><div class="chain" id="chain"></div><p class="detail" id="detail"></p></section>${bt.cr ? `<p class="credit">🖼 ${bt.cr}</p>` : ''}</div></div></article>`;
+
+    let xemTimer = null;
+    const sim = () => {
+      const cs = kit.ui(S, bt);
+      let xemHtml = '';
+      if (mode === 'xem') {
+        const maxSt = Math.max(1, (chainItems.length || 3) - 1);
+        xemHtml = `<div class="xem-bar">
+          <button type="button" class="xem-btn" data-xem="prev" ${S.step <= 0 ? 'disabled' : ''}>⏮ Lùi</button>
+          <button type="button" class="xem-btn primary" data-xem="play">${xemTimer ? '⏸ Dừng' : '▶ Chạy tiếp'}</button>
+          <button type="button" class="xem-btn" data-xem="next" ${S.step >= maxSt ? 'disabled' : ''}>Tiến ⏭</button>
+          <div class="xem-steps">${[...Array(maxSt + 1)].map((_, i) => `<button type="button" class="xem-dot ${S.step === i ? 'cur' : S.step > i ? 'done' : ''}" data-xem-step="${i}"><i>${i + 1}</i></button>`).join('')}</div>
+        </div>`;
+      }
+      $('#sim').hidden = !cs.length && !xemHtml;
+      $('#sim').innerHTML = xemHtml + cs.map((c, i) => ctlHtml(c, i, S)).join('');
+      requestAnimationFrame(() => { $('.fig')?.style.setProperty('--simh', ((cs.length || xemHtml) ? $('#sim').offsetHeight : 0) + 'px'); aimHand(); });
+    };
+
+    $('#stage').innerHTML = `<article class="lesson tihon">${head}<div class="bscene"><figure class="fig"><button class="done-tag ${state.beats[bkey] ? 'on' : ''}" id="donebtn" type="button" aria-pressed="${!!state.beats[bkey]}" title="Huy hiệu xong — bấm để tự đánh dấu / bỏ đánh dấu">${state.beats[bkey] ? '✓ Xong' : '○ Xong?'}</button><div class="sim" id="sim"></div><div class="artw enter"><div id="art"></div></div><button class="zoom" id="zoom-fig" aria-label="Phóng to hình">⤢</button><span class="coach">👆</span></figure><div class="bside"><div class="task"><div class="trow"><b class="todo" id="todo">👆 Việc của bạn</b><button class="demo" id="demo" type="button" title="Xem bàn tay ma làm mẫu">▶ Xem mẫu</button></div><div id="ask-slot"></div><div class="say"><div id="mas"></div><div class="bub" id="bub" aria-live="polite"></div></div></div><section class="aha locked" id="aha" aria-live="polite"><h3>💡 À ra vậy</h3><div class="chain" id="chain"></div><p class="detail" id="detail"></p></section>${bt.cr ? `<p class="credit">🖼 ${bt.cr}</p>` : ''}</div></div></article>`;
     // ▶ Xem mẫu: bàn tay ma làm đúng chuỗi thao tác ngắn nhất tới đích (kế hoạch do ZS.plan tìm sẵn)
     let demoT = []; const later = (fn, ms) => demoT.push(setTimeout(fn, ms));
     const stopDemo = () => { demoT.forEach(clearTimeout); demoT = []; demoOn = false; cancelAnimationFrame(demoRaf); $('#demohand')?.remove(); const b = $('#demo'); if (b) { b.textContent = '▶ Xem mẫu'; b.classList.remove('on'); } };
@@ -235,6 +290,69 @@ function renderLesson(id, sub) {
       later(() => { stopDemo(); toast('Giờ tới lượt bạn thử lại nha 👆'); }, t + 600);
     };
     ['pointerdown', 'keydown'].forEach(ev => $('#art').addEventListener(ev, () => { if (demoOn) stopDemo(); }));
+
+    // Xử lý sự kiện Chế độ Xem (mode: 'xem')
+    $('#sim').addEventListener('click', ev => {
+      const b = ev.target.closest('[data-xem]'), dot = ev.target.closest('[data-xem-step]');
+      const maxSt = Math.max(1, (chainItems.length || 3) - 1);
+      if (b) {
+        const act = b.dataset.xem;
+        if (act === 'prev') S.step = Math.max(0, (S.step || 0) - 1);
+        else if (act === 'next') S.step = Math.min(maxSt, (S.step || 0) + 1);
+        else if (act === 'play') {
+          if (xemTimer) { clearInterval(xemTimer); xemTimer = null; }
+          else {
+            if ((S.step || 0) >= maxSt) S.step = 0;
+            xemTimer = setInterval(() => {
+              if ((S.step || 0) >= maxSt) { clearInterval(xemTimer); xemTimer = null; sim(); paint(true); }
+              else { S.step++; kit.after?.(S, 'step', bt); sim(); paint(true); }
+            }, 1400);
+          }
+        }
+        kit.after?.(S, 'step', bt); sound('pop'); sim(); paint(true);
+      } else if (dot) {
+        S.step = +dot.dataset.xemStep;
+        kit.after?.(S, 'step', bt); sound('pop'); sim(); paint(true);
+      }
+    });
+
+    // Xử lý sự kiện Dự đoán (ask)
+    $('#stage').addEventListener('click', ev => {
+      const askBtn = ev.target.closest('[data-ask]');
+      if (askBtn && ask) {
+        const askKey = ask.key || 'guess';
+        S[askKey] = askBtn.dataset.ask;
+        kit.after?.(S, askKey, bt);
+        sound('pop'); sim(); paint(true);
+      }
+    });
+
+    // Tương tác 2 chiều: rê mắt xích -> sáng hình; rê hình -> sáng mắt xích
+    $('#chain').addEventListener('mouseover', ev => {
+      const cn = ev.target.closest('[data-hl]');
+      if (cn && cn.dataset.hl) {
+        const hl = cn.dataset.hl;
+        $$('#art [id="hl-' + hl + '"], #art #' + hl).forEach(el => el.classList.add('hl-on'));
+      }
+    });
+    $('#chain').addEventListener('mouseout', ev => {
+      const cn = ev.target.closest('[data-hl]');
+      if (cn && cn.dataset.hl) {
+        const hl = cn.dataset.hl;
+        $$('#art [id="hl-' + hl + '"], #art #' + hl).forEach(el => el.classList.remove('hl-on'));
+      }
+    });
+    $('#art').addEventListener('mouseover', ev => {
+      const target = ev.target.closest('[id^="hl-"], [id]');
+      if (target && target.id) {
+        const idStr = target.id.replace(/^hl-/, '');
+        $$('#chain [data-hl="' + idStr + '"]').forEach(c => c.classList.add('cn-hover'));
+      }
+    });
+    $('#art').addEventListener('mouseout', () => {
+      $$('#chain .cn-hover').forEach(c => c.classList.remove('cn-hover'));
+    });
+
     sim(); paint(); bar(); wireCommon();
     wireSim(S, (k, v) => { const p = Object.assign({}, S); delete p._p; S._p = p; S._k = k; S[k] = v; kit.after?.(S, k, bt); }, (k, ev, slide) => {
       if (!slide) sim(); const was = beatOk; if (!(bt.goal || kit.goal)) beatOk = true; else if (ok()) beatOk = true;
@@ -911,6 +1029,60 @@ function renderOsceFlowchart(c, cf) {
   </div>`;
 }
 
+const TOUGH_QUESTIONS = {
+  nbn: [
+    { q: '“Bác sĩ, sản phụ này siêu âm cấp cứu thấy bánh nhau dày nhẹ nhưng KHÔNG THẤY KHỐI MÁU TỤ SAU NHAU. Bác sĩ có hạ chẩn đoán hoặc cho theo dõi tiếp không?”',
+      a: 'Dạ KHÔNG THƯA GIÁM KHẢO. Siêu âm trong nhau bong non thể cấp có độ nhạy rất thấp (chỉ 25–50%) vì máu tụ giai đoạn sớm có hồi âm đồng nhất với bánh nhau. Nhau bong non là CHẨN ĐOÁN LÂM SÀNG dựa trên tam chứng: đau bụng dữ dội liên tục, tử cung co cứng như gỗ và tim thai suy cấp. Tuyệt đối không trì hoãn mổ cấp cứu chỉ vì siêu âm chưa thấy máu tụ.' },
+    { q: '“Tại sao không cho sản phụ này thuốc giảm co (Tocolysis) để giữ thai thêm vài ngày tiêm corticoid trưởng thành phổi?”',
+      a: 'Dạ thưa giám khảo, trong nhau bong non thể nặng có suy thai cấp, thuốc giảm co là CHỐNG CHỈ ĐỊNH. Cơ tử cung đang tăng trương lực để ép các xoang mạch cầm máu; dùng giảm co vừa làm chậm trễ cuộc mổ cứu con vừa tăng xuất huyết mẹ và tăng nguy cơ phong huyết tử cung Couvelaire.' }
+  ],
+  ntd: [
+    { q: '“Sản phụ ra huyết đỏ tươi, bác sĩ có thăm âm đạo bằng ngón tay để xem cổ tử cung mở bao nhiêu cm không?”',
+      a: 'Dạ TUYỆT ĐỐI KHÔNG THƯA GIÁM KHẢO. Thăm âm đạo bằng ngón tay khi chưa loại trừ nhau tiền đạo là lỗi cấm (Fatal Error) có thể làm rách thủng bánh nhau bám ở đoạn dưới gây xuất huyết ồ ạt dẫn đến tử vong mẹ và thai. Em chỉ khám mỏ vịt bộc lộ CTC nhẹ nhàng và làm siêu âm ngả âm đạo (TVS) an toàn.' },
+    { q: '“Sản phụ này có tiền căn 1 lần mổ lấy thai cũ. Yếu tố này làm bác sĩ lo sợ biến chứng nguy hiểm nào nhất?”',
+      a: 'Dạ thưa thầy/cô, tiền căn mổ lấy thai cũ phối hợp với nhau tiền đạo bám mặt trước đoạn dưới tử cung là BÁO ĐỘNG ĐỎ CỦA NHAU CÀI RĂNG LƯỢC (PAS). Nguy cơ bánh nhau xâm lấn sâu vào lớp cơ và thanh mạc tử cung làm tăng nguy cơ băng huyết tối cấp, truyền máu khối lượng lớn và phải cắt tử cung cấp cứu.' }
+  ],
+  tolac: [
+    { q: '“Sản phụ này muốn thử sinh thường, nhưng em thấy vết mổ ngoài da là vết mổ dọc giữa rốn mu. Em có từ chối TOLAC không?”',
+      a: 'Dạ thưa giám khảo, vết mổ ngoài da KHÔNG PHẢN ÁNH đường rạch trên cơ tử cung (đường rạch da Pfannenstiel hay dọc giữa đều có thể rạch ngang đoạn dưới tử cung). Em sẽ XIN BIÊN BẢN MỔ LẤY THAI CŨ hoặc giấy ra viện để xác định chính xác đường rạch cơ tử cung. Nếu biên bản mổ ghi rạch ngang đoạn dưới thì sản phụ vẫn đủ điều kiện thử chuyển dạ.' },
+    { q: '“Dấu hiệu nào trên lâm sàng và CTG là nhạy nhất, xuất hiện sớm nhất báo hiệu vỡ tử cung trong chuyển dạ?”',
+      a: 'Dạ thưa giám khảo, dấu hiệu sớm nhất và nhạy nhất (> 70–80%) của vỡ tử cung trong TOLAC là BẤT THƯỜNG TIM THAI ĐỘT NGỘT TRÊN CTG (đặc biệt là nhịp giảm biến đổi kéo dài hoặc nhịp tim thai chậm sâu kéo dài). Triệu chứng đau bụng ngoài cơn gò hay ra huyết âm đạo có thể bị lu mờ hoàn toàn nếu sản phụ có gây tê ngoài màng cứng.' }
+  ]
+};
+
+const PATIENT_REACTIONS = {
+  nbn: {
+    quote: '“Bác sĩ ơi bụng em đau cứng quá, quặn thắt liên tục như vỡ bụng ra rồi, em không thở nổi nữa! Em bé trong bụng có sao không bác sĩ ơi?!”',
+    reply: 'Bác sĩ nắm tay động viên: “Chị ơi, em hiểu chị đang rất đau. Ê-kíp tụi em đang tập trung toàn lực cấp cứu cho hai mẹ con. Em đang cho thuốc giảm đau và đẩy chị vào phòng mổ ngay để đón bé ra an toàn. Chị hít thở sâu theo em nhé!”'
+  },
+  ntd: {
+    quote: '“Bác sĩ ơi tự nhiên em thấy ướt đầm đũng quần, mở ra thấy toàn máu tươi đỏ lòm mà em không thấy đau bụng gì cả. Có phải em sắp sinh non không, con em có sống được không?!”',
+    reply: 'Bác sĩ nhẹ nhàng: “Chị yên tâm, chị đang ở trong bệnh viện rồi. Bánh nhau bám hơi thấp nên bị rỉ máu, tụi em đang theo dõi sát tim thai của con và sinh hiệu của chị. Hiện tại em bé vẫn an toàn, chị nằm nghỉ tuyệt đối và không tự đi lại nhé.”'
+  },
+  tolac: {
+    quote: '“Lần trước em mổ đau đớn và ám ảnh quá, lần này em khát khao sinh thường lắm. Nhưng em nghe nói vết mổ cũ có thể bị bục vỡ chết cả mẹ lẫn con, em sợ quá bác sĩ ơi...”',
+    reply: 'Bác sĩ thấu cảm: “Em rất hiểu mong muốn sinh tự nhiên của chị. Tỷ lệ sinh thường thành công ở người có vết mổ cũ như chị lên tới 60–80%. Nguy cơ nứt sẹo chỉ khoảng 0,5% và tụi em theo dõi tim thai liên tục tại phòng sinh có kíp mổ cấp cứu sẵn sàng. Mình cùng nhau theo dõi sát, an toàn của chị và bé luôn là ưu tiên số một.”'
+  }
+};
+function renderToughQuestions(top) {
+  const qs = TOUGH_QUESTIONS[top] || TOUGH_QUESTIONS.nbn;
+  return `<div class="o-tough-card">
+    <div class="o-tough-head"><span>👨‍🏫</span><b>CÂU HỎI VẶN CỦA GIÁM KHẢO:</b></div>
+    ${qs.map(item => `<details class="deep" style="margin-bottom:8px" open>
+      <summary class="o-tough-q">❓ ${e(item.q)}</summary>
+      <div class="o-tough-ans">💡 <b>Đáp chuẩn Y4:</b> ${e(item.a)}</div>
+    </details>`).join('')}
+  </div>`;
+}
+function renderPatientReactions(top) {
+  const p = PATIENT_REACTIONS[top] || PATIENT_REACTIONS.nbn;
+  return `<div class="o-patient-card">
+    <div class="o-patient-head"><span>🤰</span><b>TÌNH HUỐNG GIAO TIẾP VỚI SẢN PHỤ:</b></div>
+    <div class="o-patient-quote">${e(p.quote)}</div>
+    <div class="o-patient-reply">🤝 <b>Lời đáp chuẩn mực:</b> ${e(p.reply)}</div>
+  </div>`;
+}
+
 function renderOsceExamView(c, cf, steps, ticks, pct) {
   const top = cf.topic, kind = cf.kind;
   const official = window.OFFICIAL_RUBRIC;
@@ -969,6 +1141,11 @@ function renderOsceExamView(c, cf, steps, ticks, pct) {
         </details>
       </figure>
 
+      <div class="o-interact-grid">
+        ${renderToughQuestions(top)}
+        ${renderPatientReactions(top)}
+      </div>
+
       <details class="deep" open>
         <summary>🎙️ Xem Kịch bản nói mẫu chuẩn Y4 ĐHYD (Bấm để gập/mở)</summary>
         <div class="deep-body">
@@ -1011,7 +1188,17 @@ function renderOsceExamView(c, cf, steps, ticks, pct) {
           }).join('')}
         </div>
 
-        <button class="btn pink" id="exam-answer-toggle" style="margin-top:10px;width:100%">Mở đáp án nguồn & đối chiếu ↗</button>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button class="btn pink" id="exam-answer-toggle" style="flex:1">Mở đáp án nguồn ↗</button>
+          <button class="btn flat" id="export-checklist-btn" style="flex:1" title="Xuất checklist sang định dạng văn bản">📋 Xuất checklist</button>
+        </div>
+
+        <div class="o-note-card" style="margin-top:14px;background:#fff;border:1.5px dashed var(--c-d);border-radius:16px;padding:12px 16px">
+          <div style="font-weight:bold;margin-bottom:6px;display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink)">
+            <span>📝</span><b>GHI CHÚ THỰC CHIẾN CÁ NHÂN (Lưu tự động):</b>
+          </div>
+          <textarea id="osce-personal-note" placeholder="Ghi lại các cạm bẫy bản thân hay quên, mẹo nhớ của riêng bạn cho trạm này..." style="width:100%;height:65px;border:1px solid #cbd5e1;border-radius:10px;padding:8px 10px;font-family:inherit;font-size:12.5px;resize:vertical;background:#fafbfc;color:var(--ink);box-sizing:border-box">${e(state.notes['osce_' + c.id] || '')}</textarea>
+        </div>
       </div>
 
       <section id="case-answer-exam" hidden>
@@ -1169,6 +1356,43 @@ function renderCase(id) {
         renderCase(id);
       };
     });
+    const ecb = $('#export-checklist-btn');
+    if (ecb) {
+      ecb.onclick = () => {
+        const textLines = [
+          `📋 BẢNG KIỂM THI THỬ 5 PHÚT OSCE - ${c.title}`,
+          `Tình huống: ${plain(c.scenario || '')}`,
+          `Thời gian: 5 phút | Đối tượng: Sinh viên Y4 ĐHYD`,
+          `--------------------------------------------------`,
+          `TIÊU CHÍ ĐÁNH GIÁ (RUBRIC BỘ MÔN):`
+        ];
+        const curRubric = state.rubrics[c.id + '_exam'] || [];
+        (official.rows || []).forEach(r => {
+          const checked = curRubric.includes(r.id) ? '[X]' : '[ ]';
+          textLines.push(`${checked} ${r.name} (${r.max}đ): ${r.desc}`);
+        });
+        textLines.push(`--------------------------------------------------`);
+        textLines.push(`Ghi chú cá nhân: ${state.notes['osce_' + c.id] || '(chưa có)'}`);
+        const fullTxt = textLines.join('\n');
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(fullTxt).then(() => {
+            toast('📋 Đã sao chép bảng kiểm trạm vào Clipboard!');
+            sound('chime');
+          }).catch(() => {
+            prompt('Sao chép bảng kiểm bên dưới:', fullTxt);
+          });
+        } else {
+          prompt('Sao chép bảng kiểm bên dưới:', fullTxt);
+        }
+      };
+    }
+    const opn = $('#osce-personal-note');
+    if (opn) {
+      opn.addEventListener('input', () => {
+        state.notes['osce_' + c.id] = opn.value;
+        save();
+      });
+    }
   }
 
   // Events for step mode
@@ -1217,13 +1441,18 @@ function updateTimer(){
 function startTimer(){
   if (remaining <= 0) { toast('Hết giờ tự luyện; bạn có thể đặt lại hoặc mở đáp án.'); return; }
   timerRunning = true;
+  sound('chime');
   caseTimer = setInterval(() => {
     remaining = Math.max(0, remaining - 1);
     updateTimer();
+    if (remaining === 60) {
+      sound('bell');
+      toast('⚠️ Còn đúng 1 phút cuối! Khẩn trương chốt tư vấn, dặn dò và teach-back.');
+    }
     if (!remaining) {
       stopTimer();
-      sound('chime');
-      toast('⏰ Đã hết 5 phút thi trạm! Hãy hoàn tất câu nói và đối chiếu với đáp án/rubric.');
+      sound('gong');
+      toast('⏰ HẾT GIỜ THI TRẠM (5:00)! Dừng câu nói và đối chiếu với checklist rubric.');
       if ($('#timer-toggle')) $('#timer-toggle').textContent = 'Đã hết giờ';
       if ($('#exam-timer-toggle')) {
         $('#exam-timer-toggle').textContent = 'Đã hết giờ';
@@ -1358,6 +1587,112 @@ function renderTra() {
     </div>
   </div>
 </section>
+
+<section class="tra-tools" style="margin-top:14px">
+  <div class="tra-tbox">
+    <div class="tra-th"><span>🩸 THƯỚC ĐO LÂM SÀNG TRỰC QUAN</span><h3>Ước tính máu mất thực tế qua vật dụng thấm máu</h3></div>
+    <div style="padding:14px 18px;display:grid;grid-template-columns:repeat(auto-fit, minmax(220px, 1fr));gap:12px">
+      <div style="background:#fff;border:1.3px solid #fecdd3;border-radius:14px;padding:12px">
+        <b style="color:#be123c">🩹 Gạc 10x10 cm thấm đẫm:</b>
+        <p style="margin:4px 0 0;font-size:12.5px;color:#475569">≈ <b>60 mL</b> máu. Nhìn thấy 5 miếng gạc đẫm ≈ 300 mL.</p>
+      </div>
+      <div style="background:#fff;border:1.3px solid #fecdd3;border-radius:14px;padding:12px">
+        <b style="color:#be123c">🧻 Gạc phẫu thuật lớn (Lap sponge):</b>
+        <p style="margin:4px 0 0;font-size:12.5px;color:#475569">≈ <b>350 mL</b> máu khi thấm đẫm toàn bộ.</p>
+      </div>
+      <div style="background:#fff;border:1.3px solid #fecdd3;border-radius:14px;padding:12px">
+        <b style="color:#be123c">🥣 Khay quả đậu (Kidney dish):</b>
+        <p style="margin:4px 0 0;font-size:12.5px;color:#475569">Đầy khay ≈ <b>500 mL</b> máu (Đã đạt ngưỡng chẩn đoán BHSS!).</p>
+      </div>
+      <div style="background:#fff;border:1.3px solid #fecdd3;border-radius:14px;padding:12px">
+        <b style="color:#be123c">🛏️ Máu tràn tấm trải xuống sàn:</b>
+        <p style="margin:4px 0 0;font-size:12.5px;color:#475569">Máu loang rộng > 100cm đường kính ≈ <b>1000–1500 mL</b> (Sốc mất bù!).</p>
+      </div>
+    </div>
+    <p class="status-note" style="padding:0 18px 12px;margin:0">⚠️ Ước tính bằng mắt thường (EBL) có xu hướng ĐÁNH GIÁ THẤP 30–50% lượng máu thực tế. Hãy dùng túi đo máu có vạch chia (Drape) hoặc cân gạc (QBL)!</p>
+  </div>
+</section>
+
+<section class="tra-tools" style="margin-top:14px">
+  <div class="tra-tbox">
+    <div class="tra-th"><span>⚠️ AN TOÀN DƯỢC LÂM SÀNG</span><h3>Chống chỉ định tuyệt đối của Thuốc cấp cứu Sản khoa</h3></div>
+    <div style="padding:14px 18px;display:grid;grid-template-columns:repeat(auto-fit, minmax(260px, 1fr));gap:12px">
+      <div style="background:#fef2f2;border:1.3px solid #f87171;border-radius:14px;padding:12px">
+        <b style="color:#991b1b">🚫 Methylergometrine (Methergine):</b>
+        <div style="font-size:12.5px;color:#7f1d1d;margin-top:4px">
+          <b>CHỐNG CHỈ ĐỊNH:</b> Tiền sản giật, Tăng HA, Bệnh tim mạch.<br>
+          <i>Lý do:</i> Co thắt mạch máu toàn thân dữ dội → Nguy cơ xuất huyết não, phù phổi cấp, nhồi máu cơ tim.
+        </div>
+      </div>
+      <div style="background:#fef2f2;border:1.3px solid #f87171;border-radius:14px;padding:12px">
+        <b style="color:#991b1b">🚫 Carboprost Tromethamine (PGF2α):</b>
+        <div style="font-size:12.5px;color:#7f1d1d;margin-top:4px">
+          <b>CHỐNG CHỈ ĐỊNH:</b> Hen phế quản, Bệnh phổi tắc nghẽn.<br>
+          <i>Lý do:</i> Co thắt phế quản cấp tính nặng gây ngạt thở, suy hô hấp tử vong.
+        </div>
+      </div>
+      <div style="background:#fef2f2;border:1.3px solid #f87171;border-radius:14px;padding:12px">
+        <b style="color:#991b1b">🚫 Bolus nhanh Oxytocin tĩnh mạch:</b>
+        <div style="font-size:12.5px;color:#7f1d1d;margin-top:4px">
+          <b>CẤM:</b> Bơm trực tiếp nhanh cả ống tĩnh mạch.<br>
+          <i>Lý do:</i> Gây giãn mạch ngoại vi đột ngột, tụt huyết áp nghiêm trọng, ngưng tim. (Phải tiêm bắp hoặc pha truyền chậm).
+        </div>
+      </div>
+      <div style="background:#fef2f2;border:1.3px solid #f87171;border-radius:14px;padding:12px">
+        <b style="color:#991b1b">🚫 Thuốc giảm co (Tocolysis):</b>
+        <div style="font-size:12.5px;color:#7f1d1d;margin-top:4px">
+          <b>CHỐNG CHỈ ĐỊNH:</b> Nhau bong non thể nặng, Vỡ tử cung, Suy thai cấp.<br>
+          <i>Lý do:</i> Làm mất phản xạ co siết cầm máu của tử cung và làm chậm trễ thời gian mổ cấp cứu.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="tra-tools" style="margin-top:14px">
+  <div class="tra-tbox">
+    <div class="tra-th"><span>☠️ ĐƯỜNG ĐỎ CẤM PHẠM</span><h3>8 Lỗi cấm tử thần (Fatal Errors) khiến rớt ngay OSCE</h3></div>
+    <div style="padding:14px 18px">
+      <ol style="margin:0;padding-left:20px;font-size:13px;color:#1e293b;line-height:1.7">
+        <li><b>Thăm âm đạo bằng ngón tay</b> khi sản phụ ra huyết 3 tháng cuối chưa loại trừ Nhau tiền đạo.</li>
+        <li><b>Ấn đáy tử cung (Fundal pressure)</b> khi gặp ca Kẹt vai thai nhi (làm vai kẹt chặt thêm, vỡ tử cung, đứt đám rối cánh tay).</li>
+        <li><b>Kéo giật đầu hoặc xoay vặn cổ thai nhi thô bạo</b> trong Kẹt vai.</li>
+        <li><b>Dùng thuốc giảm co (Tocolytic)</b> cho ca Nhau bong non thể nặng có suy thai cấp.</li>
+        <li><b>Chỉ định tiêm Ergometrine</b> cho sản phụ bị Tiền sản giật nặng / Tăng huyết áp.</li>
+        <li><b>Chỉ định truyền Oxytocin tăng co</b> để "vượt cản trở cơ học" khi có dấu hiệu Dọa vỡ tử cung (vòng Bandl dâng cao).</li>
+        <li><b>Chần chừ một mình, không kích hoạt Báo động đỏ</b> khi sản phụ mất máu > 500 mL kèm Shock Index ≥ 1,0.</li>
+        <li><b>Cho phép thử chuyển dạ ngả âm đạo (TOLAC)</b> trên sản phụ có sẹo mổ cũ rạch dọc thân tử cung (Classic incision).</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section class="tra-tools" style="margin-top:14px">
+  <div class="tra-tbox">
+    <div class="tra-th"><span>🩸 HỒI SỨC TRUYỀN MÁU KHỐI LƯỢNG LỚN</span><h3>Phác đồ MTP (Massive Transfusion Protocol) Tỉ lệ 1:1:1</h3></div>
+    <div style="padding:14px 18px;display:grid;grid-template-columns:repeat(auto-fit, minmax(200px, 1fr));gap:12px">
+      <div style="background:#eff6ff;border:1.3px solid #93c5fd;border-radius:14px;padding:12px;text-align:center">
+        <div style="font-size:24px">🔴</div>
+        <b style="color:#1d4ed8;font-size:15px">4 ĐV Hồng cầu lắng</b>
+        <p style="margin:4px 0 0;font-size:12px;color:#475569">Vận chuyển oxy mô, giữ Hb ≥ 70–80 g/L</p>
+      </div>
+      <div style="background:#eff6ff;border:1.3px solid #93c5fd;border-radius:14px;padding:12px;text-align:center">
+        <div style="font-size:24px">🟡</div>
+        <b style="color:#1d4ed8;font-size:15px">4 ĐV Huyết tương tươi (FFP)</b>
+        <p style="margin:4px 0 0;font-size:12px;color:#475569">Bù yếu tố đông máu, giữ Fibrinogen ≥ 2 g/L</p>
+      </div>
+      <div style="background:#eff6ff;border:1.3px solid #93c5fd;border-radius:14px;padding:12px;text-align:center">
+        <div style="font-size:24px">⚪</div>
+        <b style="color:#1d4ed8;font-size:15px">1 ĐV Tiểu cầu gạn tách</b>
+        <p style="margin:4px 0 0;font-size:12px;color:#475569">Hoặc 4-6 đv pool, giữ TC ≥ 50.000 /µL</p>
+      </div>
+    </div>
+    <div style="padding:0 18px 14px;font-size:12.5px;color:#334155;line-height:1.6">
+      ⚡ <b>Hỗ trợ đi kèm:</b> Tranexamic acid (TXA) 1g IV trong 3 giờ đầu · Bù Calci gluconate 1g IV mỗi 4 ĐV máu (tránh ngộ độc citrate) · Giữ ấm bệnh nhân > 36°C để phòng Tam giác chết (Toan máu - Hạ thân nhiệt - Rối loạn đông máu).
+    </div>
+  </div>
+</section>
+
 <div class="tra">${TRA.map(([ic, t, col, rows]) => `<section class="tra-g c-${col}"><h2>${ic} ${e(t)}</h2>${rows.map(([a, b, id]) => `<a class="tra-r" href="#/step/${id}"><b>${e(a)}</b><span>${e(b)}</span><i>↗</i></a>`).join('')}</section>`).join('')}</div>`;
 
   bindTraTools();
@@ -1415,6 +1750,197 @@ function renderChot(mid) {
   $('#next').onclick = go2; window.__next = go2; window.__prev = () => go(lessonHash(ls[ls.length - 1], pagesOf(ls[ls.length - 1]).slice(-1)[0]));
 }
 function pageBar() { setBar(`<a class="btn flat" href="#/map">🏠 Bản đồ</a><span class="mid"><span class="sign">${SIGN}</span></span><a class="btn primary" href="#/step/${state.last}">▶ Học tiếp</a>`); }
+
+// ───────── Bảng Đối Chiếu Song Song (#/sosanh)
+const COMPARISONS = [
+  {
+    id: 'nbn-ntd',
+    title: 'Nhau bong non vs Nhau tiền đạo',
+    badge: 'Chảy máu 3 tháng cuối thai kỳ',
+    cases: [
+      {
+        name: 'Nhau bong non (Placental Abruption)',
+        sub: 'Bong nhau sớm trước khi thai sổ',
+        points: [
+          ['Tính chất máu', 'Máu đen loãng, không đông (hoặc kẹt kín bên trong, máu ngoài ít)', '#dc2626'],
+          ['Cơn đau bụng', 'Đau quặn liên tục, dữ dội, đau ngoài cơn gò', '#dc2626'],
+          ['Tử cung', 'Tử cung co cứng như gỗ, trương lực cơ bản tăng cao, ấn rất đau', '#dc2626'],
+          ['Tim thai & CTG', 'Suy thai cấp sớm, nhịp tim thai chậm sâu, nguy cơ thai lưu cao', '#dc2626'],
+          ['Khám âm đạo', 'Khám mỏ vịt / ngón tay nhẹ nhàng khi cần xác định độ mở cổ tử cung', '#16a34a'],
+          ['Biến chứng sợ nhất', 'Đông máu nội mạch lan tỏa (DIC), Phong huyết tử cung Couvelaire, suy thận cấp', '#991b1b'],
+          ['Xử trí then chốt', 'Mổ lấy thai tối khẩn cứu thai nếu thai sống; hồi sức chống sốc, bù máu & yếu tố đông máu', '#dc2626'],
+          ['ĐIỀU CẤM KỴ', 'CẤM dùng thuốc giảm co (Tocolysis) khi NBN thể nặng có suy thai', '#7f1d1d']
+        ]
+      },
+      {
+        name: 'Nhau tiền đạo (Placenta Previa)',
+        sub: 'Bánh nhau bám ở đoạn dưới / cổ tử cung',
+        points: [
+          ['Tính chất máu', 'Máu đỏ tươi, có thể lẫn máu cục, chảy ra ngoài tự nhiên từng đợt', '#2563eb'],
+          ['Cơn đau bụng', 'KHÔNG đau bụng, chảy máu đột ngột khi nghỉ ngơi hoặc ban đêm', '#2563eb'],
+          ['Tử cung', 'Tử cung mềm, không tăng trương lực cơ bản, nắn sờ được phần thai', '#2563eb'],
+          ['Tim thai & CTG', 'Tim thai thường bình thường (trừ khi mẹ mất máu quá nặng gây sốc)', '#16a34a'],
+          ['Khám âm đạo', 'TUYỆT ĐỐI CẤM THĂM NGÓN TAY. Chỉ khám mỏ vịt bộc lộ nhẹ & siêu âm TVS an toàn', '#dc2626'],
+          ['Biến chứng sợ nhất', 'Băng huyết ồ ạt, Nhau cài răng lược (PAS) trên vết mổ cũ, cắt tử cung', '#991b1b'],
+          ['Xử trí then chốt', 'Nghỉ ngơi, giảm gò nếu non tháng; mổ lấy thai chủ động ở tuần 37–38 hoặc mổ cấp cứu khi chảy máu đe dọa', '#2563eb'],
+          ['ĐIỀU CẤM KỴ', 'TUYỆT ĐỐI CẤM THĂM KHÁM ÂM ĐẠO BẰNG NGÓN TAY KHI CHƯA LOẠI TRỪ NTĐ', '#7f1d1d']
+        ]
+      }
+    ],
+    pearl: '💡 <b>Quy tắc lâm sàng vàng:</b> Ra huyết đỏ tươi không đau bụng = nghĩ ngay Nhau tiền đạo (CẤM thăm ngón tay!). Ra huyết đen kèm tử cung co cứng như gỗ và đau đớn dữ dội = nghĩ ngay Nhau bong non (Báo động mổ cứu con và chống DIC!).'
+  },
+  {
+    id: 'vo-nut',
+    title: 'Vỡ tử cung vs Nứt sẹo mổ cũ',
+    badge: 'Tai biến chuyển dạ có sẹo mổ cũ',
+    cases: [
+      {
+        name: 'Vỡ tử cung hoàn toàn (Uterine Rupture)',
+        sub: 'Rách toác toàn bộ cơ và thanh mạc',
+        points: [
+          ['Thanh mạc phúc mạc', 'Rách toác toàn bộ 3 lớp (niêm mạc, cơ, thanh mạc), thông với ổ bụng', '#dc2626'],
+          ['Vị trí thai & nhau', 'Thai nhi hoặc bánh nhau bị tống xuất một phần hoặc toàn bộ vào ổ bụng', '#dc2626'],
+          ['Cơn đau lâm sàng', 'Đau chói như dao đâm, sau đó đột ngột bớt đau bụng nhưng sốc mất máu nặng', '#dc2626'],
+          ['Cơn gò tử cung', 'Mất cơn gò tử cung đột ngột, bụng chướng, sờ thấy phần thai dưới da bụng', '#dc2626'],
+          ['Biểu hiện CTG', 'Nhịp tim thai chậm sâu kéo dài đột ngột (> 70–80% ca), suy thai tối cấp', '#dc2626'],
+          ['Huyết động mẹ', 'Sốc mất máu nội ồ ạt, tụt HA, mạch nhanh nhỏ, da tái lạnh', '#dc2626'],
+          ['Xử trí cấp cứu', 'Kích hoạt Báo động đỏ toàn viện! Mở bụng cấp cứu cứu mẹ và thai, khâu phục hồi hoặc cắt tử cung', '#dc2626'],
+          ['ĐIỀU CẤM KỴ', 'CẤM tiếp tục chuyển dạ ngả âm đạo, CẤM tăng co Oxytocin', '#7f1d1d']
+        ]
+      },
+      {
+        name: 'Nứt sẹo mổ cũ (Scar Dehiscence / Window)',
+        sub: 'Cơ tử cung tách nhưng thanh mạc còn nguyên',
+        points: [
+          ['Thanh mạc phúc mạc', 'Lớp thanh mạc phúc mạc tạng vẫn còn nguyên vẹn, buồng tử cung chưa thông ổ bụng', '#2563eb'],
+          ['Vị trí thai & nhau', 'Thai và bánh nhau vẫn nằm trọn vẹn bên trong buồng tử cung', '#16a34a'],
+          ['Cơn đau lâm sàng', 'Thường KHÔNG có triệu chứng (thầm lặng), phát hiện tình cờ khi mổ lấy thai lặp lại', '#2563eb'],
+          ['Cơn gò tử cung', 'Cơn gò tử cung vẫn tiếp diễn bình thường theo tiến trình chuyển dạ', '#16a34a'],
+          ['Biểu hiện CTG', 'Tim thai thường bình thường, không có nhịp giảm kéo dài', '#16a34a'],
+          ['Huyết động mẹ', 'Huyết động ổn định, không có chảy máu ổ bụng, không sốc', '#16a34a'],
+          ['Xử trí cấp cứu', 'Nếu phát hiện khi mổ: làm tươi mép cơ và khâu phục hồi lại vết mổ thành tử cung', '#16a34a'],
+          ['ĐIỀU CẤM KỴ', 'Không nhầm lẫn nứt sẹo thầm lặng với vỡ tử cung cấp cứu để gây hoảng loạn không cần thiết', '#7f1d1d']
+        ]
+      }
+    ],
+    pearl: '💡 <b>Điểm mấu chốt:</b> Nứt sẹo (Dehiscence) là “cửa sổ sẹo” thanh mạc còn nguyên; Vỡ tử cung (Rupture) là rách toác 3 lớp thông ổ bụng. Biểu hiện sớm nhất và nhạy nhất của vỡ tử cung trong chuyển dạ là BẤT THƯỜNG TIM THAI TRÊN CTG (nhịp chậm kéo dài), không phải đau bụng!'
+  },
+  {
+    id: 'do-chanthuong',
+    title: 'Đờ tử cung vs Chấn thương đường sinh dục',
+    badge: 'Chẩn đoán phân biệt Băng huyết sau sinh',
+    cases: [
+      {
+        name: 'Đờ tử cung (Uterine Atony - Chữ T đầu tiên)',
+        sub: 'Cơ tử cung không co rút sau khi sổ nhau',
+        points: [
+          ['Sờ nắn tử cung', 'Tử cung nhão như bao nước, đáy tử cung dâng cao trên rốn, không có khối cầu an toàn', '#dc2626'],
+          ['Dòng máu chảy', 'Máu đỏ sẫm ồ ạt kèm cục máu đông lớn tuôn ra khi xoa bóp hoặc ấn đáy tử cung', '#dc2626'],
+          ['Đáp ứng co hồi', 'Đáp ứng rõ rệt khi xoa bóp đáy tử cung và dùng thuốc co hồi (Oxytocin, Ergometrine)', '#16a34a'],
+          ['Kiểm tra âm đạo', 'Cổ tử cung, âm đạo, tầng sinh môn không có vết rách sâu đang phun máu', '#16a34a'],
+          ['Xử trí then chốt', 'Xoa bóp đáy tử cung + Oxytocin IV + TXA 1g + ép hai tay + bóng Bakri + thuyên tắc/mổ', '#dc2626']
+        ]
+      },
+      {
+        name: 'Chấn thương đường sinh dục (Genital Trauma)',
+        sub: 'Rách TSM, âm đạo, cổ tử cung, vỡ/lộn tử cung',
+        points: [
+          ['Sờ nắn tử cung', 'Tử cung co hồi rất tốt, chắc nịch như quả cầu an toàn dưới rốn', '#16a34a'],
+          ['Dòng máu chảy', 'Máu đỏ tươi chảy liên tục thành dòng không ngừng dù tử cung đang co hồi rất chắc', '#dc2626'],
+          ['Đáp ứng co hồi', 'KHÔNG đáp ứng với thuốc co hồi (vì nguồn chảy máu từ mạch máu bị rách)', '#dc2626'],
+          ['Kiểm tra âm đạo', 'Khám bằng van âm đạo/mỏ vịt thấy rách sâu TSM, rách túi cùng, rách cổ tử cung hoặc khối máu tụ', '#dc2626'],
+          ['Xử trí then chốt', 'Bộc lộ rõ phẫu trường, kẹp cầm máu đỉnh rách, khâu phục hồi mũi chữ X/vắt liên tục', '#2563eb']
+        ]
+      }
+    ],
+    pearl: '💡 <b>Quy tắc lâm sàng vàng:</b> Tử cung co chắc mà máu vẫn chảy đỏ tươi liên tục = 100% tìm chấn thương đường sinh dục (Trauma). Tử cung mềm nhão dâng cao = Đờ tử cung (Tone). Tuyệt đối không nhồi thêm thuốc co hồi khi tử cung đã co cứng mà máu vẫn chảy!'
+  },
+  {
+    id: 'vai-truoc-sau',
+    title: 'Kẹt vai trước vs Kẹt vai sau',
+    badge: 'Cơ chế giải phẫu Kẹt vai (Shoulder Dystocia)',
+    cases: [
+      {
+        name: 'Kẹt vai trước (Anterior Shoulder Impaction)',
+        sub: 'Chiếm > 95% trường hợp kẹt vai',
+        points: [
+          ['Vị trí mắc kẹt', 'Xương mỏm cùng vai trước mắc kẹt sau bờ trên xương mu của mẹ', '#dc2626'],
+          ['Dấu hiệu lâm sàng', 'Dấu hiệu đầu rùa (Turtle sign): đầu thai sổ ra rồi thụt rút ngược vào âm hộ', '#dc2626'],
+          ['Mục tiêu cơ chế', 'Làm phẳng độ dốc xương cùng (McRoberts) + ép giảm đường kính lưỡng mỏm vai (ấn trên mu)', '#2563eb'],
+          ['Thủ thuật ưu tiên', '1. McRoberts (gập đùi sát bụng) + 2. Ấn trên xương mu (Rubin I) hướng chéo sang một bên', '#16a34a'],
+          ['ĐIỀU CẤM KỴ', 'TUYỆT ĐỐI CẤM ẤN ĐÁY TỬ CUNG (Fundal pressure) — đẩy vai kẹt cứng hơn vào xương mu', '#7f1d1d']
+        ]
+      },
+      {
+        name: 'Kẹt vai sau (Posterior Shoulder Impaction)',
+        sub: 'Hiếm gặp hơn nhưng khó xử trí hơn',
+        points: [
+          ['Vị trí mắc kẹt', 'Vai sau của thai nhi mắc kẹt phía trước ụ nhô xương cùng của mẹ', '#dc2626'],
+          ['Dấu hiệu lâm sàng', 'Đầu thai sổ khó khăn, không thể đưa ngón tay vào hõm cùng để lách vai sau', '#dc2626'],
+          ['Mục tiêu cơ chế', 'Đưa bàn tay dọc theo tay sau của thai, hạ cánh tay sau qua trước ngực để giải phóng 2-3 cm', '#2563eb'],
+          ['Thủ thuật ưu tiên', 'Hạ tay sau (Jacquemier / Delivery of posterior arm) hoặc xoay Woods 180 độ', '#16a34a'],
+          ['ĐIỀU CẤM KỴ', 'CẤM nắm cổ kéo giật đầu thai — nguy cơ rách đám rối thần kinh cánh tay Erb-Duchenne', '#7f1d1d']
+        ]
+      }
+    ],
+    pearl: '💡 <b>Quy tắc lâm sàng vàng:</b> Nhớ bộ 3 CẤM trong Kẹt vai: 1. CẤM ấn đáy tử cung; 2. CẤM kéo giật đầu thai; 3. CẤM xoay vặn cổ. Luôn bắt đầu bằng McRoberts + Ấn trên xương mu (thành công > 50-70% ca!).'
+  }
+];
+
+let curCompareTab = 'nbn-ntd';
+function renderSosanh() {
+  setView('page-mode', 'lavender'); pageBar();
+  const cData = COMPARISONS.find(c => c.id === curCompareTab) || COMPARISONS[0];
+  $('#stage').innerHTML = `<div class="page-head">
+    <div class="eyebrow">⚖️ ĐỐI CHIẾU LÂM SÀNG SONG SONG</div>
+    <h1>Phân biệt <em>cặp đôi dễ nhầm</em></h1>
+    <p>Đối chiếu trực quan các tình huống cấp cứu sản khoa đối lập. Nắm chắc cơ chế bệnh sinh để ra quyết định xử trí chính xác, tránh nhầm lẫn tai hại trong phòng thi OSCE và thực hành cấp cứu.</p>
+  </div>
+  
+  <div class="pill-list" style="margin-bottom:16px">
+    ${COMPARISONS.map(c => `<button class="pill ${c.id === curCompareTab ? 'active' : ''}" data-ctab="${c.id}" style="${c.id === curCompareTab ? 'background:var(--c-d);color:#fff;border-color:var(--c-d)' : ''}">${e(c.title)}</button>`).join('')}
+  </div>
+
+  <section class="compare-hero">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+      <h2 style="font:800 20px var(--disp);color:var(--ink);margin:0">${e(cData.title)}</h2>
+      <span class="badge" style="background:#f3e8ff;color:#7e22ce;padding:4px 10px;border-radius:99px;font:700 12px var(--disp)">${e(cData.badge)}</span>
+    </div>
+    
+    <div class="compare-grid">
+      ${cData.cases.map((cs, idx) => `
+        <div class="compare-box" style="border-color:${idx === 0 ? '#f43f5e' : '#3b82f6'}">
+          <div class="compare-title" style="background:${idx === 0 ? 'linear-gradient(135deg, #e11d48, #be123c)' : 'linear-gradient(135deg, #2563eb, #1d4ed8)'}">
+            <span>${idx === 0 ? '🅰️' : '🅱️'} ${e(cs.name)}</span>
+            <small style="opacity:.85;font-size:11px">${e(cs.sub)}</small>
+          </div>
+          <div class="compare-body">
+            ${cs.points.map(([label, val, col]) => `
+              <div class="compare-row">
+                <b>${e(label)}:</b>
+                <span style="color:${col || 'var(--ink)'};font-weight:${col ? '600' : 'normal'}">${e(val)}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div style="margin-top:16px;background:#fff;border-left:4px solid #8b5cf6;padding:12px 16px;border-radius:12px;box-shadow:0 2px 8px rgba(139,92,246,.08)">
+      ${cData.pearl}
+    </div>
+  </section>`;
+
+  $$('[data-ctab]').forEach(btn => {
+    btn.onclick = () => {
+      curCompareTab = btn.dataset.ctab;
+      renderSosanh();
+      sound('pop');
+    };
+  });
+  renderRail();
+}
+
 function route() {
   const hash = location.hash || '#/map';
   if (!hash.startsWith('#/')) { document.getElementById(hash.slice(1))?.scrollIntoView(); return; }
@@ -1429,6 +1955,7 @@ function route() {
   else if (view === 'case') { page('sky'); renderCase(id); }
   else if (view === 'sources') { page('lavender'); renderSources(id); }
   else if (view === 'review') { page('peach'); renderReview(); }
+  else if (view === 'sosanh') renderSosanh();
   else if (view === 'tra') renderTra();
   else if (view === 'chot') renderChot(id);
   else if (view === 'chuong') renderChuong(id);
@@ -1437,9 +1964,37 @@ function route() {
   document.title = (view === 'step' ? (L.find(x => x.id === id)?.title || 'Màn học') + ' · ' : '') + 'zitthenk học cấp cứu sản khoa';
   $('#stage').scrollTop = 0;
 }
+
+let searchCategory = 'all';
 function search() {
-  const query = norm($('#search-input').value), results = query ? L.filter(l => norm(l.title + ' ' + l.core + ' ' + l.deep + ' ' + l.pitfall).includes(query)) : L.slice(0, 6);
-  $('#search-results').innerHTML = `<p class="status-note">${query ? results.length + ' màn phù hợp' : 'Gợi ý · gõ để tìm trong toàn bộ nội dung'}</p>` + results.slice(0, 35).map(l => `<a class="search-result" href="#/step/${l.id}"><small>${MODICON[l.module]} ${e(moduleOf(l).short)}</small><br><strong>${e(l.title)}</strong><p>${e(l.core).slice(0, 150)}…</p></a>`).join('') + (!results.length ? '<p>Chưa thấy. Bạn thử từ ngắn hơn hoặc bỏ dấu nha.</p>' : '');
+  const query = norm($('#search-input').value);
+  let pool = L;
+  if (searchCategory === 'drug') {
+    pool = L.filter(l => norm(l.title + ' ' + l.core + ' ' + l.deep).match(/oxytocin|ergometrine|misoprostol|carboprost|carbetocin|tranexamic|txa|thuoc|truyen mau/));
+  } else if (searchCategory === 'trap') {
+    pool = L.filter(l => norm(l.pitfall).length > 10 || norm(l.title + ' ' + l.core).match(/cam|chu y|tranh|nguy hiem|sai lam|khong/));
+  } else if (searchCategory === 'osce') {
+    pool = L.filter(l => norm(l.title + ' ' + l.core).match(/osce|tram|kham|xu tri|hoi benh|tu van/));
+  } else if (searchCategory === 'mech') {
+    pool = L.filter(l => norm(l.title + ' ' + l.core).match(/co che|sinh ly|domino|ap luc|giai phau/));
+  }
+  const results = query ? pool.filter(l => norm(l.title + ' ' + l.core + ' ' + l.deep + ' ' + l.pitfall).includes(query)) : pool.slice(0, 8);
+  const chipsHtml = `<div class="search-chips">
+    <button class="search-chip ${searchCategory === 'all' ? 'active' : ''}" data-scat="all">Tất cả (${L.length})</button>
+    <button class="search-chip ${searchCategory === 'drug' ? 'active' : ''}" data-scat="drug">💊 Thuốc & Dịch</button>
+    <button class="search-chip ${searchCategory === 'trap' ? 'active' : ''}" data-scat="trap">⚠️ Cạm bẫy lâm sàng</button>
+    <button class="search-chip ${searchCategory === 'osce' ? 'active' : ''}" data-scat="osce">🩺 Kỹ năng OSCE</button>
+    <button class="search-chip ${searchCategory === 'mech' ? 'active' : ''}" data-scat="mech">🧠 Cơ chế bệnh sinh</button>
+  </div>`;
+  $('#search-results').innerHTML = chipsHtml + `<p class="status-note">${query ? results.length + ' kết quả phù hợp' : 'Gợi ý tìm kiếm · gõ từ khóa để tra cứu toàn bộ'}</p>` + results.slice(0, 35).map(l => `<a class="search-result" href="#/step/${l.id}"><small>${MODICON[l.module]} ${e(moduleOf(l).short)}</small><br><strong>${e(l.title)}</strong><p>${e(l.core).slice(0, 150)}…</p></a>`).join('') + (!results.length ? '<p style="padding:12px;color:var(--muted)">Không tìm thấy bài phù hợp trong danh mục này. Bạn thử chọn "Tất cả" hoặc từ khóa khác nha.</p>' : '');
+  $$('[data-scat]').forEach(btn => {
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      searchCategory = btn.dataset.scat;
+      search();
+      $('#search-input').focus();
+    };
+  });
 }
 $('#search-open').onclick = () => { $('#search-dialog').showModal(); search(); $('#search-input').focus(); }; $('#search-input').addEventListener('input', search);
 $('#toc-open').onclick = () => { initTOC(); $('#toc-dialog').showModal(); };
@@ -1448,12 +2003,24 @@ $$('dialog').forEach(d => d.addEventListener('click', ev => { if (ev.target === 
 $('#toc-list').addEventListener('click', ev => { if (ev.target.closest('a')) $('#toc-dialog').close(); });
 $('#search-results').addEventListener('click', ev => { if (ev.target.closest('a')) $('#search-dialog').close(); });
 $('#sound').onclick = () => { state.sound = !state.sound; save(); sound('chime'); toast(state.sound ? 'Đã bật âm thanh 🔔' : 'Đã tắt âm thanh 🔕'); };
+const ntBtn = $('#night-toggle');
+if (ntBtn) {
+  ntBtn.onclick = () => {
+    state.night = !state.night;
+    document.body.classList.toggle('night-mode', state.night);
+    save();
+    sound('pop');
+    toast(state.night ? '🌙 Đã kích hoạt Chế độ Trực đêm' : '☀️ Đã chuyển sang Chế độ Tiêu chuẩn');
+  };
+}
 $('#export').onclick = () => { const data = JSON.stringify({ ...state, exportedAt: new Date().toISOString() }, null, 2), blob = new Blob([data], { type: 'application/json' }), a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'zitthenk-chuong6-tien-do.json'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1500); toast('Đã tải bản tiến độ để giữ hoặc chuyển máy.'); };
 $('#import').addEventListener('change', async ev => { const file = ev.target.files[0]; if (!file) return; try { if (file.size > 1000000) throw Error('File quá lớn. Hãy chọn đúng bản tiến độ JSON.'); const imported = sanitize(JSON.parse(await file.text())); state.done = [...new Set([...state.done, ...imported.done])]; state.bookmarks = [...new Set([...state.bookmarks, ...imported.bookmarks])]; state.answers = { ...state.answers, ...imported.answers }; state.notes = { ...state.notes, ...imported.notes }; state.rubrics = { ...state.rubrics, ...imported.rubrics }; state.last = imported.last; save(); route(); toast('Đã nhập và gộp tiến độ. Các màn đã học vẫn còn nha.'); } catch (err) { toast('Không nhập được: ' + err.message); } ev.target.value = ''; });
 document.addEventListener('keydown', ev => {
   const editable = ev.target.closest?.('input,textarea,select,[contenteditable=true]'), interactive = ev.target.closest?.('button,a,summary');
   if ($('dialog[open]')) return;
   if (ev.key === '/' && !editable) { ev.preventDefault(); $('#search-open').click(); return; }
+  if (!editable && (ev.key === 'n' || ev.key === 'N')) { ev.preventDefault(); $('#night-toggle')?.click(); return; }
+  if (!editable && (ev.key === 's' || ev.key === 'S')) { ev.preventDefault(); go('#/sosanh'); return; }
   if (editable || ev.ctrlKey || ev.metaKey || ev.altKey || (ev.code === 'Space' && interactive)) return;
   if (ev.key === 'ArrowRight' || ev.code === 'Space') { if (window.__next) { ev.preventDefault(); window.__next(); } }
   if (ev.key === 'ArrowLeft' && window.__prev) { ev.preventDefault(); window.__prev(); }
@@ -1461,7 +2028,7 @@ document.addEventListener('keydown', ev => {
 let tx = 0, ty = 0, tOK = false;
 $('#stage').addEventListener('touchstart', ev => { const t = ev.touches[0]; tx = t.clientX; ty = t.clientY; tOK = !ev.target.closest('.fig,.sim,input,.ctl,.deep-body'); }, { passive: true });
 $('#stage').addEventListener('touchend', ev => { const t = ev.changedTouches[0], dx = t.clientX - tx, dy = t.clientY - ty; if (tOK && Math.abs(dx) > 80 && Math.abs(dy) < 40) { if (dx < 0 && window.__next) window.__next(); else if (dx > 0 && window.__prev) window.__prev(); } }, { passive: true });
-window.ALL_SCREENS = () => ['#/map', ...M.map(m => '#/chuong/' + m.id), ...L.flatMap(l => pagesOf(l).map(p => lessonHash(l, p))), ...M.map(m => '#/chot/' + m.id), '#/tra', '#/osce', '#/osce/guide', ...(window.OSCE_CASES || []).map(c => '#/case/' + c.id)];
+window.ALL_SCREENS = () => ['#/map', ...M.map(m => '#/chuong/' + m.id), ...L.flatMap(l => pagesOf(l).map(p => lessonHash(l, p))), ...M.map(m => '#/chot/' + m.id), '#/sosanh', '#/tra', '#/osce', '#/osce/guide', ...(window.OSCE_CASES || []).map(c => '#/case/' + c.id)];
 window.addEventListener('hashchange', route); window.addEventListener('beforeunload', stopTimer);
 updateTop(); route();
 })();

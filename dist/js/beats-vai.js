@@ -25,7 +25,16 @@ const credHV = 'Hariadhi, Wikimedia Commons · CC BY-SA 4.0';
 
 // ═════════ BÀI 1 · Đầu ra rồi, vai vẫn có thể mắc
 kit('bv-rua', {
-  init: () => ({ keo: 0 }), ui: () => [{ t: 'range', k: 'keo', label: '🤲 Kéo nhẹ đầu theo trục', min: 0, max: 100, step: 10, unit: '%' }], goal: s => s.keo >= 70,
+  init: () => ({ keo: 0, guess: '' }), ui: () => [{ t: 'range', k: 'keo', label: '🤲 Kéo nhẹ đầu theo trục', min: 0, max: 100, step: 10, unit: '%' }],
+  ask: { q: 'Khi đầu bé đã ra mà vai không ra, kéo nhẹ không nhúc nhích thì làm gì?', opts: [['keo','Ráng kéo mạnh hơn'], ['ngung','Ngừng kéo ngay lập tức']], key: 'guess', good: v => v === 'ngung', why: 'Kéo mạnh chỉ làm căng rách đám rối cánh tay mà không gỡ được xương.' },
+  goal: s => s.keo >= 70,
+  chain: s => [
+    { t: 'Đầu bé đã ra ngoài, kéo nhẹ **không nhúc nhích**.', hl: 'dau', when: () => true },
+    { t: 'Đầu **thụt lùi sát tầng sinh môn** (dấu con rùa 🐢).', hl: 'dau-rut', when: s => s.keo > 30 },
+    { t: 'Vai trước đang bị **xương mu chặn đứng**.', hl: 'vai-ket', when: s => s.keo >= 70 }
+  ],
+  clin: 'Nhận diện dấu con rùa (turtle sign): đầu rụt lại sát TSM → ngừng kéo ngay, gọi đội hỗ trợ.',
+  trap: 'CẤM kéo giật đầu hoặc ráng lôi kéo mạnh vì sợ ngạt.',
   draw: s => {
     const f = s.keo / 100, hot = f >= .7;
     let o = KV(false);
@@ -33,9 +42,9 @@ kit('bv-rua', {
       const hx = HD[0] + 16 + 24 * Math.min(f, .4), hy = HD[1] + 16 + 12 * Math.min(f, .4);
       o += arrow(`M${HD[0] + 16} ${HD[1] + 16} L${hx + 28} ${hy + 14}`, C.mute, 3 + 2 * f);
       if (hot) {
-        o += `<g class="bob">${arrow(`M${HD[0] + 62} ${HD[1] + 54} q-32 8 -46 -10`, C.red, 5)}</g>`;
+        o += `<g class="bob" id="hl-dau-rut">${arrow(`M${HD[0] + 62} ${HD[1] + 54} q-32 8 -46 -10`, C.red, 5)}</g>`;
         o += Th(HD[0] + 4, HD[1] + 76, '🐢 đầu rụt lại sát TSM', { c: C.redD });
-        o += `<g class="shake-once">${lockIcon(SH[0] - 30, SH[1] - 10, false)}</g>` + call(SH[0], SH[1], 250, 44, 'vai mắc sau khớp vệ', C.redD);
+        o += `<g class="shake-once" id="hl-vai-ket">${lockIcon(SH[0] - 30, SH[1] - 10, false)}</g>` + call(SH[0], SH[1], 250, 44, 'vai mắc sau khớp vệ', C.redD);
       }
     }
     o += card(372, 20, 178, 310) + T(461, 52, 'Kéo theo trục…', { s: 15 });
@@ -49,10 +58,19 @@ kit('bv-rua', {
   say: s => s.keo >= 70 ? ['worry', 'Vai **không ra**, đầu còn **rụt lại** sát tầng sinh môn (**dấu con rùa 🐢**). Kéo nhẹ không ra = **kẹt vai**, ngừng kéo ngay!'] : ['happy', 'Đầu bé đã **ra ngoài** rồi. Kéo thanh **🤲 Kéo nhẹ đầu theo trục** xem vai có theo ra không 👆']
 });
 kit('bv-cho', {
-  init: () => ({ pick: '' }), ui: () => [], goal: s => s.pick === 'vai',
+  init: () => ({ pick: '', guess: '' }), ui: () => [],
+  ask: { q: 'Kẹt vai thông thường nhất là do vai nào mắc vào xương nào?', opts: [['truoc','Vai trước mắc sau khớp vệ'], ['sau','Vai sau mắc ở mỏm nhô']], key: 'guess', good: v => v === 'truoc', why: 'Vai trước mắc sau khớp vệ chiếm đa số; vai sau mắc mỏm nhô hiếm gặp hơn.' },
+  goal: s => s.pick === 'vai',
+  chain: s => [
+    { t: 'Vai trước tì chặt sau **khớp vệ (xương mu)**.', hl: 'vai-truoc', when: s => s.pick === 'vai' },
+    { t: 'Xương mu cứng chặn không cho thân trượt ra.', hl: 'khop-ve', when: s => s.pick === 'vai' },
+    { t: 'Cần thủ thuật để **hạ hoặc xoay** vai khỏi gờ xương.', hl: 'thanh-vai', when: s => s.pick === 'vai' }
+  ],
+  clin: 'Xác định rõ vị trí mắc là sau khớp vệ để chọn hướng ấn trên vệ thích hợp.',
+  trap: 'Kẹt vai là sự cản trở của XƯƠNG (khung chậu mẹ), không phải do mô mềm.',
   draw: s => {
     const ok = s.pick === 'vai';
-    let o = KV(false) + tap('pick=vai', SH[0], SH[1] - 6, 30, 26, ok ? 1 : 0) + tap('pick=dau', HD[0], HD[1], 40, 40, s.pick === 'dau' ? -1 : 0) + tap('pick=bung', 120, 150, 54, 40, s.pick === 'bung' ? -1 : 0);
+    let o = KV(false) + `<g id="hl-vai-truoc">${tap('pick=vai', SH[0], SH[1] - 6, 30, 26, ok ? 1 : 0)}</g>` + tap('pick=dau', HD[0], HD[1], 40, 40, s.pick === 'dau' ? -1 : 0) + tap('pick=bung', 120, 150, 54, 40, s.pick === 'bung' ? -1 : 0);
     if (ok) o += ZS.fade(call(PU[0] + 6, PU[1] - 12, 262, 44, 'xương mu', '#a07a3c', 'middle') + call(SH[0] - 6, SH[1], 150, 70, 'vai trước mắc ở đây', C.redD, 'end'), ZS.fresh(s, x => x.pick === 'vai'));
     o += card(372, 20, 178, 310);
     o += ok ? T(461, 56, 'Hay gặp nhất', { s: 13, c: C.mute }) + T(461, 80, 'vai TRƯỚC', { s: 18 }) + T(461, 100, 'mắc sau khớp vệ', { s: 14 }) + `<path d="M396 126 H526" stroke="${C.grid}"/>` + T(461, 156, 'Hiếm hơn', { s: 13, c: C.mute }) + T(461, 180, 'vai SAU', { s: 18 }) + T(461, 200, 'mắc ở mỏm nhô', { s: 14 }) + T(461, 252, '→ cả hai đều là', { s: 13, c: C.mute }) + T(461, 274, 'XƯƠNG chặn vai', { s: 15, c: C.redD })
@@ -62,14 +80,24 @@ kit('bv-cho', {
   say: s => s.pick === 'vai' ? ['wow', 'Đúng! **Vai trước** mắc sau **khớp vệ** (xương mu). Hiếm hơn: **vai sau** mắc ở **mỏm nhô**.'] : s.pick === 'dau' ? ['worry', 'Đầu đã ra ngoài rồi — chỗ mắc nằm **bên trong**, ngay sau xương mu.'] : s.pick === 'bung' ? ['worry', 'Thân bé còn trong tử cung nhưng không mắc ở đó. Tìm chỗ **xương chặn vai** nha.'] : ['happy', 'Đầu đã ra mà vai không ra. Vai bé **mắc ở đâu**? Chạm vào hình 👆']
 });
 kit('bv-keo', {
-  init: () => ({ f: 0, dx: HD[0] + 14, dy: HD[1] + 16 }), ui: () => [], after: (s, k) => { if (k === 'dx' || k === 'dy') s.f = Math.max(0, Math.min(100, Math.round(100 * (s.dx - (HD[0] + 14)) / 56 / 10) * 10)); }, goal: s => s.f >= 70,
+  init: () => ({ f: 0, dx: HD[0] + 14, dy: HD[1] + 16, guess: '' }), ui: () => [],
+  ask: { q: 'Nếu dùng lực kéo đầu mạnh hơn thì kết quả thế nào?', opts: [['lit','Gây đứt đám rối thần kinh'], ['ra','Vai sẽ bật lọt ra']], key: 'guess', good: v => v === 'lit', why: 'Xương vẫn chặn đứng vai, lực kéo chỉ truyền thẳng làm căng rách đám rối cánh tay.' },
+  after: (s, k) => { if (k === 'dx' || k === 'dy') s.f = Math.max(0, Math.min(100, Math.round(100 * (s.dx - (HD[0] + 14)) / 56 / 10) * 10)); },
+  goal: s => s.f >= 70,
+  chain: s => [
+    { t: 'Đầu bị kéo xa khỏi vai đang kẹt cố định.', hl: 'dau', when: () => true },
+    { t: 'Đám rối cánh tay ở cổ **bị kéo căng quá mức**.', hl: 'dam-roi', when: s => s.f > 20 },
+    { t: 'Nguy cơ **liệt Erb (C5–C6)** hoặc liệt toàn bộ cánh tay.', hl: 'dam-roi', when: s => s.f >= 70 }
+  ],
+  clin: 'Lực kéo tối đa cho phép chỉ là lực kéo nhẹ nhàng theo trục cơ thể.',
+  trap: 'Không bao giờ kéo lắc hoặc bẻ gập cổ sang bên.',
   draw: s => {
     const f = s.f / 100, col = f > .55 ? C.red : f > .25 ? C.amber : '#e5b800';
     let o = KV(false);
     const hx = HD[0] + 14 + 56 * f, hy = HD[1] + 16 + 26 * f;
     if (f) o += `<path d="M${HD[0] + 14} ${HD[1] + 16} L${hx} ${hy}" stroke="${C.red}" stroke-width="${3 + 4 * f}" stroke-linecap="round" opacity=".8"/>`;
     o += ZS.BK.drag('d', hx, hy, 10, '', [HD[0] + 14, HD[1] + 16, HD[0] + 70, HD[1] + 42], C.red) + (f ? '' : Th(HD[0] + 30, HD[1] + 58, 'kéo đầu →', { s: 12.5, c: C.redD }));
-    o += [0, 1, 2, 3].map(i => `<path d="M${SH[0] + 6 + i * 3} ${SH[1] + 4 + i * 4} Q${NK[0]} ${NK[1] - 8 + i * 5} ${HD[0] - 22} ${HD[1] - 18 + i * 6}" fill="none" stroke="${col}" stroke-width="${1.6 + 1.4 * f}" stroke-linecap="round" ${f > .55 ? 'class="pulse"' : ''}/>`).join('');
+    o += `<g id="hl-dam-roi">` + [0, 1, 2, 3].map(i => `<path d="M${SH[0] + 6 + i * 3} ${SH[1] + 4 + i * 4} Q${NK[0]} ${NK[1] - 8 + i * 5} ${HD[0] - 22} ${HD[1] - 18 + i * 6}" fill="none" stroke="${col}" stroke-width="${1.6 + 1.4 * f}" stroke-linecap="round" ${f > .55 ? 'class="pulse"' : ''}/>`).join('') + `</g>`;
     o += lockIcon(SH[0] - 34, SH[1] - 12, false) + (f > .55 ? call(NK[0], NK[1], 300, 300, 'đám rối căng!', C.redD, 'middle') : Th(300, 300, 'đám rối cánh tay', { c: '#a08400', s: 12.5 }));
     o += card(372, 20, 178, 310) + T(461, 52, 'Vai ra được?', { s: 14 }) + ZS.bar(392, 64, 138, 0, C.green, '', { h: 14 }) + T(461, 100, 'không nhúc nhích', { s: 12.5, c: C.mute });
     o += T(461, 150, 'Căng đám rối', { s: 14 }) + ZS.bar(392, 162, 138, s.f, col, '', { h: 14 }) + T(461, 198, s.f + '%', { s: 14, c: col });
@@ -79,14 +107,23 @@ kit('bv-keo', {
   say: s => s.f >= 70 ? ['ouch', 'Kéo mạnh **không gỡ được vai** — xương vẫn chặn. Chỉ kéo **căng đám rối cánh tay** ở cổ → có thể liệt tay.'] : ['happy', 'Hay là kéo **mạnh hơn**? **Kéo chấm đỏ** ở đầu bé xuống xem 👆']
 });
 kit('bv-xoay', {
-  init: () => ({ a: 0 }), ui: () => [{ t: 'range', k: 'a', label: '🔄 Xoay hai vai', min: 0, max: 45, step: 5, unit: '°' }], goal: s => s.a >= 40,
+  init: () => ({ a: 0, guess: '' }), ui: () => [{ t: 'range', k: 'a', label: '🔄 Xoay hai vai', min: 0, max: 45, step: 5, unit: '°' }],
+  ask: { q: 'Đường kính nào của eo trên rộng hơn để hai vai lọt qua?', opts: [['cheo','Đường kính chéo (~12,5 cm)'], ['ts','Đường kính trước–sau (~11 cm)']], key: 'guess', good: v => v === 'cheo', why: 'Đường kính trước–sau chỉ ~11cm hẹp hơn vai (12cm); đường kính chéo ~12,5cm rộng hơn giúp vai lọt.' },
+  goal: s => s.a >= 40,
+  chain: s => [
+    { t: 'Hai vai nằm theo **đường kính trước–sau** (≈11 cm hẹp).', hl: 'thanh-vai', when: () => true },
+    { t: 'Xoay hai vai chuyển dần sang góc chéo.', hl: 'thanh-vai', when: s => s.a > 10 },
+    { t: 'Đạt **đường kính chéo (≈12,5 cm)** → hai vai lập tức **lọt**!', hl: 'duong-cheo', when: s => s.a >= 40 }
+  ],
+  clin: 'Bản chất cơ học của mọi thủ thuật kẹt vai: chuyển vai từ trục trước–sau sang trục chéo.',
+  trap: 'Không cố ép vai đi qua đường kính trước–sau hẹp.',
   draw: s => {
     const R = inlet(190, 180, 1.12, s.a, 107, { guides: true, pdeg: s._p?.a });
-    let o = card(20, 20, 340, 310) + T(190, 44, 'Eo trên — nhìn từ dưới lên', { s: 14, c: C.mute }) + R.svg;
+    let o = card(20, 20, 340, 310) + T(190, 44, 'Eo trên — nhìn từ dưới lên', { s: 14, c: C.mute }) + `<g id="hl-thanh-vai">${R.svg}</g>`;
     o += Th(146, 68, 'khớp vệ', { a: 'end', s: 13, c: '#a07a3c' }) + Th(146, 304, 'mỏm nhô', { a: 'end', s: 13, c: '#a07a3c' });
     o += card(372, 20, 178, 310);
     o += ZS.legend(388, 54, [[C.cap, 'trước–sau', '6 5']], { s: 13 }) + T(461, 80, '≈ 11 cm · hẹp', { s: 14, c: C.cap });
-    o += ZS.legend(388, 116, [[C.green, 'chéo', '6 5']], { s: 13 }) + T(461, 142, '≈ 12,5 cm · rộng', { s: 14, c: C.green });
+    o += `<g id="hl-duong-cheo">` + ZS.legend(388, 116, [[C.green, 'chéo', '6 5']], { s: 13 }) + T(461, 142, '≈ 12,5 cm · rộng', { s: 14, c: C.green }) + `</g>`;
     o += `<path d="M392 176 h36" stroke="${C.skinD}" stroke-width="10" stroke-linecap="round"/>` + T(436, 181, 'hai vai', { a: 'start', s: 13 }) + T(461, 204, '≈ 12 cm', { s: 14 });
     o += `<rect x="388" y="236" width="146" height="70" rx="16" fill="${R.ok ? C.mint : '#ffd0d8'}"/>` + T(461, 268, R.ok ? '✓ vai lọt' : '✗ vai kẹt', { s: 20, c: R.ok ? C.green : C.redD }) + T(461, 290, R.ok ? 'nằm đường chéo' : 'nằm trước–sau', { s: 13, c: C.mute });
     return o;
@@ -134,28 +171,46 @@ kit('bv-goi', {
   say: s => s.call && s.time && s.push ? ['happy', 'Nói to “**KẸT VAI**”, gọi đủ người (sản · gây mê · nhi), **ghi giờ** đầu ra, bảo mẹ **ngừng rặn** — rồi mới làm thủ thuật.'] : ['worry', 'Vừa thấy kẹt vai! Bấm đủ **3 việc làm ngay** bên phải 👆']
 });
 kit('bv-mcr', {
-  init: () => ({ flex: 0 }), ui: () => [{ t: 'range', k: 'flex', label: '🦵 Gập đùi mẹ sát bụng', min: 0, max: 100, step: 10, unit: '%' }], goal: s => s.flex >= 80,
+  init: () => ({ flex: 0, guess: '' }), ui: () => [{ t: 'range', k: 'flex', label: '🦵 Gập đùi mẹ sát bụng', min: 0, max: 100, step: 10, unit: '%' }],
+  ask: { q: 'Nghiệm pháp McRoberts tác động cơ học như thế nào lên khung chậu?', opts: [['xoay','Khớp vệ xoay lên trên, thắt lưng phẳng'], ['hep','Khớp vệ hạ thấp xuống, xương hẹp lại']], key: 'guess', good: v => v === 'xoay', why: 'Gập đùi sát bụng làm xoay khớp vệ lên trên và làm phẳng cột sống thắt lưng.' },
+  goal: s => s.flex >= 80,
+  chain: s => [
+    { t: 'Hai đùi mẹ được **gập tối đa sát vào bụng**.', hl: 'dui-gap', when: () => true },
+    { t: 'Khớp vệ **xoay lên trên**, cột sống thắt lưng phẳng ra.', hl: 'khop-ve', when: s => s.flex > 30 },
+    { t: 'Đường kính trước–sau tăng, vai trước **thoát khỏi gờ xương**.', hl: 'vai-thoat', when: s => s.flex >= 80 }
+  ],
+  clin: 'McRoberts là bước đầu tiên cực kỳ hiệu quả, thành công tới 70-80% khi phối hợp ấn trên mu.',
+  trap: 'Không banh rộng hai đùi mẹ sang hai bên quá mức gây tổn thương khớp vệ.',
   draw: s => {
     const f = s.flex / 100, rot = -24 * f, ok = f >= .8;
-    let o = card(20, 20, 300, 310) + pic('mcroberts.svg', 24, 24, 292, 300) + Th(250, 160, '① gập đùi', { c: C.redD, s: 13 }) + Th(196, 202, '② ấn trên mu', { a: 'end', c: C.redD, s: 13 });
+    let o = card(20, 20, 300, 310) + `<g id="hl-dui-gap">${pic('mcroberts.svg', 24, 24, 292, 300)}</g>` + Th(250, 160, '① gập đùi', { c: C.redD, s: 13 }) + Th(196, 202, '② ấn trên mu', { a: 'end', c: C.redD, s: 13 });
     // eo trên nhìn từ dưới lên: gập đùi → khớp vệ nhấc lên, đường trước–sau rộng ra
     const R = inlet(441, 186, .78, 0, 107, { ry: 98 + 14 * f });
-    o += card(332, 20, 218, 310) + T(441, 44, 'Eo trên — nhìn từ dưới', { s: 12.5, c: C.mute }) + R.svg + Th(441, 186 - (98 + 14 * f) * .78 - 22, 'khớp vệ', { s: 12.5, c: '#a07a3c' });
-    if (f > .1) o += arrow(`M500 ${150 - 10 * f} q8 -24 -18 ${-34 - 10 * f}`, C.green, 3);
+    o += card(332, 20, 218, 310) + T(441, 44, 'Eo trên — nhìn từ dưới', { s: 12.5, c: C.mute }) + `<g id="hl-khop-ve">${R.svg}</g>` + Th(441, 186 - (98 + 14 * f) * .78 - 22, 'khớp vệ', { s: 12.5, c: '#a07a3c' });
+    if (f > .1) o += `<g id="hl-vai-thoat">${arrow(`M500 ${150 - 10 * f} q8 -24 -18 ${-34 - 10 * f}`, C.green, 3)}</g>`;
     o += `<rect x="352" y="282" width="178" height="40" rx="14" fill="${ok ? C.mint : '#ffd0d8'}"/>` + T(441, 308, ok ? '✓ vai có chỗ thoát' : '✗ khớp vệ chặn vai', { s: 14, c: ok ? C.green : C.redD });
     return o;
   },
   say: s => s.flex >= 80 ? ['wow', 'Gập đùi sát bụng → **khớp vệ xoay lên trên**, cột sống thắt lưng thẳng ra → vai trước **có chỗ thoát**. Đơn giản mà hiệu quả.'] : ['happy', '**McRoberts**: người phụ gập hai đùi mẹ sát bụng. Kéo thanh **🦵 Gập đùi** xem khớp vệ thay đổi 👆']
 });
 kit('bv-supra', {
-  init: () => ({ pick: '' }), ui: () => [], goal: s => s.pick === 'mu',
+  init: () => ({ pick: '', guess: '' }), ui: () => [],
+  ask: { q: 'Ấn trên vệ: ấn thẳng góc xuống hay ấn chếch sang một bên?', opts: [['cheo','Ấn chếch từ phía lưng sang ngực bé'], ['thang','Ấn thẳng góc xuống xương mu']], key: 'guess', good: v => v === 'cheo', why: 'Ấn chếch từ phía lưng giúp đẩy vai trước khép lại và xoay sang đường kính chéo.' },
+  goal: s => s.pick === 'mu',
+  chain: s => [
+    { t: 'Bàn tay ấn **ngay trên xương mu** (không ấn đáy).', hl: 'tay-an', when: s => s.pick === 'mu' },
+    { t: 'Lực đẩy mặt sau vai trước **khép lại và xoay**.', hl: 'luc-cheo', when: s => s.pick === 'mu' },
+    { t: 'Hai vai chuyển sang **đường kính chéo** rộng hơn → lọt.', hl: 'thanh-vai', when: s => s.pick === 'mu' }
+  ],
+  clin: 'Người phụ ấn trên vệ trong khi người đỡ giữ lực kéo nhẹ liên tục.',
+  trap: 'CẤM ấn đáy tử cung — làm vai nêm chặt hơn và tăng nguy cơ vỡ tử cung.',
   draw: s => {
     const ok = s.pick === 'mu', bad = s.pick === 'day';
-    let o = KV(ok) + (ok ? '' : tap('pick=mu', SP[0], SP[1], 26, 24)) + tap('pick=day', FU[0] + 10, FU[1] - 30, 30, 34, bad ? -1 : 0);
-    if (ok) o += ZS.drawIn(arrow(`M${SP[0] - 34} ${SP[1] - 50} l22 34`, C.green, 5), .6) + Th(172, 52, 'ấn ngay trên xương mu', { a: 'middle', c: C.green }) + `<circle cx="${SH[0]}" cy="${SH[1] - 6}" r="20" fill="none" stroke="${C.green}" stroke-width="2.4"/>`;
+    let o = KV(ok) + (ok ? '' : `<g id="hl-tay-an">${tap('pick=mu', SP[0], SP[1], 26, 24)}</g>`) + tap('pick=day', FU[0] + 10, FU[1] - 30, 30, 34, bad ? -1 : 0);
+    if (ok) o += `<g id="hl-luc-cheo">${ZS.drawIn(arrow(`M${SP[0] - 34} ${SP[1] - 50} l22 34`, C.green, 5), .6)}</g>` + Th(172, 52, 'ấn ngay trên xương mu', { a: 'middle', c: C.green }) + `<circle cx="${SH[0]}" cy="${SH[1] - 6}" r="20" fill="none" stroke="${C.green}" stroke-width="2.4"/>`;
     if (bad) o += Th(FU[0] + 12, FU[1] + 30, '⛔ đáy tử cung', { a: 'start', c: C.redD });
     const R = inlet(461, 170, .62, ok ? 45 : 0, ok ? 98 : 107, { pdeg: s._p ? (s._p.pick === 'mu' ? 45 : 0) : null, phl: s._p ? (s._p.pick === 'mu' ? 98 : 107) : null });
-    o += card(372, 20, 178, 310) + T(461, 44, 'Nhìn từ dưới lên', { s: 12.5, c: C.mute }) + R.svg;
+    o += card(372, 20, 178, 310) + T(461, 44, 'Nhìn từ dưới lên', { s: 12.5, c: C.mute }) + `<g id="hl-thanh-vai">${R.svg}</g>`;
     o += T(461, 280, ok ? '✓ vai khép + xoay chéo' : 'vai đang trước–sau', { s: 13, c: ok ? C.green : C.mute }) + (ok ? T(461, 300, '→ lọt', { s: 15, c: C.green }) : '');
     return o;
   },
@@ -221,14 +276,23 @@ kit('bv-doi', {
   say: s => s.last === 'pull' && s.pull ? ['ouch', 'Kéo mạnh hơn **không** gỡ được vai — chỉ thêm tổn thương. Chọn thẻ khác!'] : s.rot && s.arm && s.four ? ['happy', 'Chưa ra thì **đổi cơ chế** ngay: xoay vai, lấy tay sau, tư thế bò 4 chân — thứ tự theo phác đồ và đội đã huấn luyện.'] : ['worry', 'McRoberts + ấn trên mu **chưa ra**. Làm gì tiếp? Chạm **các thẻ đúng** 👆']
 });
 kit('bv-xoay2', {
-  init: () => ({ a: 0 }), ui: () => [{ t: 'range', k: 'a', label: '🔄 Ngón tay xoay vai', min: 0, max: 45, step: 5, unit: '°' }], goal: s => s.a >= 40,
+  init: () => ({ a: 0, guess: '' }), ui: () => [{ t: 'range', k: 'a', label: '🔄 Ngón tay xoay vai', min: 0, max: 45, step: 5, unit: '°' }],
+  ask: { q: 'Trong thủ thuật Rubin II, bác sĩ đặt ngón tay vào đâu để xoay?', opts: [['sau','Mặt sau của vai trước'], ['truoc','Mặt trước của vai trước']], key: 'guess', good: v => v === 'sau', why: 'Đẩy mặt sau vai trước giúp khép vai về phía ngực, thu nhỏ đường kính hai vai.' },
+  goal: s => s.a >= 40,
+  chain: s => [
+    { t: 'Hai ngón tay đặt ở **mặt sau vai trước**.', hl: 'ngon-tay', when: () => true },
+    { t: 'Đẩy vai khép lại và xoay sang góc chéo.', hl: 'mat-sau-vai', when: s => s.a > 10 },
+    { t: 'Đạt góc xoay **30–45°** → vai lọt qua đường kính chéo.', hl: 'thanh-vai', when: s => s.a >= 40 }
+  ],
+  clin: 'Có thể kết hợp Woods screw maneuver: đặt thêm 2 ngón tay ở mặt trước vai sau để cùng xoay một chiều.',
+  trap: 'Không đẩy vào mặt trước vai trước vì sẽ làm vai dang rộng ra (tăng kẹt).',
   draw: s => {
     const R = inlet(190, 180, 1.12, s.a, 107, { guides: true, pdeg: s._p?.a });
-    let o = card(20, 20, 340, 310) + T(190, 44, 'Eo trên — nhìn từ dưới lên', { s: 14, c: C.mute }) + R.svg;
+    let o = card(20, 20, 340, 310) + T(190, 44, 'Eo trên — nhìn từ dưới lên', { s: 14, c: C.mute }) + `<g id="hl-thanh-vai">${R.svg}</g>`;
     // hai ngón tay đặt sau vai trước
     const [x, y] = R.c1, ang = s.a;
-    o += `<g transform="translate(${x} ${y}) rotate(${ang})"><rect x="${-46}" y="-8" width="34" height="13" rx="6.5" fill="#ffe2cf" stroke="${C.skinD}"/><rect x="${-46}" y="8" width="34" height="13" rx="6.5" fill="#ffe2cf" stroke="${C.skinD}"/></g>` + Th(x - 52, y - 20, 'ngón tay', { a: 'end', s: 12.5 });
-    if (s.a) o += `<path d="M${190 + 70} ${180 - 92} A116 116 0 0 1 ${190 + 108} ${180 - 30}" fill="none" stroke="${C.green}" stroke-width="2.4" marker-end="url(#arG)"/>`;
+    o += `<g id="hl-ngon-tay" transform="translate(${x} ${y}) rotate(${ang})"><rect x="${-46}" y="-8" width="34" height="13" rx="6.5" fill="#ffe2cf" stroke="${C.skinD}"/><rect x="${-46}" y="8" width="34" height="13" rx="6.5" fill="#ffe2cf" stroke="${C.skinD}"/></g>` + Th(x - 52, y - 20, 'ngón tay', { a: 'end', s: 12.5 });
+    if (s.a) o += `<path id="hl-mat-sau-vai" d="M${190 + 70} ${180 - 92} A116 116 0 0 1 ${190 + 108} ${180 - 30}" fill="none" stroke="${C.green}" stroke-width="2.4" marker-end="url(#arG)"/>`;
     o += card(372, 20, 178, 310) + T(461, 60, 'Ngón tay đẩy', { s: 14 }) + T(461, 80, 'mặt sau vai', { s: 14 }) + T(461, 126, '↓', { s: 22, c: C.soft }) + T(461, 160, 'hai vai xoay', { s: 14 }) + T(461, 180, 'sang đường chéo', { s: 14 });
     o += `<rect x="388" y="222" width="146" height="70" rx="16" fill="${R.ok ? C.mint : '#ffd0d8'}"/>` + T(461, 255, R.ok ? '✓ vai lọt' : '✗ còn kẹt', { s: 19, c: R.ok ? C.green : C.redD }) + T(461, 278, s.a + '°', { s: 13, c: C.mute });
     return o;
@@ -236,14 +300,23 @@ kit('bv-xoay2', {
   say: s => s.a >= 40 ? ['wow', '**Xoay vai**: ngón tay đẩy mặt sau vai → hai vai từ **trước–sau** sang **đường chéo** rộng hơn → lọt.'] : ['happy', 'Bác sĩ đưa **ngón tay** vào sau vai trước. Kéo thanh **🔄 Ngón tay xoay vai** 👆']
 });
 kit('bv-tay', {
-  init: () => ({ keo: 0 }), ui: () => [{ t: 'range', k: 'keo', label: '🖐 Quét cẳng tay sau qua ngực', min: 0, max: 100, step: 10, unit: '%' }], goal: s => s.keo >= 70,
+  init: () => ({ keo: 0, guess: '' }), ui: () => [{ t: 'range', k: 'keo', label: '🖐 Quét cẳng tay sau qua ngực', min: 0, max: 100, step: 10, unit: '%' }],
+  ask: { q: 'Hạ tay sau (Jacquemier) giúp giảm đường kính nào của thai nhi?', opts: [['ha-vai','Thay đường kính hai vai bằng đường kính vai-nách'], ['dau','Làm đầu bé nhỏ lại']], key: 'guess', good: v => v === 'ha-vai', why: 'Khi tay sau đưa ra ngoài, đường kính đi qua eo giảm từ 12 cm xuống còn 9,5 cm (vai-nách).' },
+  goal: s => s.keo >= 70,
+  chain: s => [
+    { t: 'Bác sĩ luồn tay theo hõm cùng tìm **cẳng tay sau**.', hl: 'tay-sau', when: () => true },
+    { t: 'Gập khuỷu và quét cẳng tay **ngang qua trước ngực**.', hl: 'quet-nguc', when: s => s.keo > 30 },
+    { t: 'Tay sau ra ngoài: đường kính giảm từ **12 cm xuống 9,5 cm**.', hl: 'ha-vai', when: s => s.keo >= 70 }
+  ],
+  clin: 'Luôn quét tay ngang qua ngực như động tác lau mặt, không bao giờ kéo giật cánh tay ra ngoài vì dễ gãy xương cánh tay.',
+  trap: 'Kéo thẳng cẳng tay khi chưa gập khuỷu có nguy cơ gãy xương cánh tay cao.',
   draw: s => {
     const f = s.keo / 100, hot = f >= .7, hl = Math.round(107 - 23 * f), dk = (12.0 - 2.5 * f).toFixed(1);
     const R = inlet(461, 154, .62, 0, hl, { arm: hot, phl: s._p ? Math.round(107 - 23 * (s._p.keo || 0) / 100) : null });
-    let o = card(20, 20, 340, 310) + pic('vai-hep.jpg', 30, 34, 320, 246);
+    let o = card(20, 20, 340, 310) + `<g id="hl-tay-sau">${pic('vai-hep.jpg', 30, 34, 320, 246)}</g>`;
     // khung highlight theo tiến trình kéo
-    o += `<rect x="${hot ? 186 : 38}" y="38" width="154" height="236" rx="14" fill="none" stroke="${hot ? C.green : C.amber}" stroke-width="2.6" stroke-dasharray="${hot ? '' : '5 4'}" class="pulse"/>`;
-    o += `<rect x="42" y="284" width="140" height="26" rx="13" fill="${hot ? '#fff' : '#ffd0d8'}" stroke="${hot ? C.grid : C.red}" stroke-width="1.4"/><rect x="194" y="284" width="154" height="26" rx="13" fill="${hot ? C.mint : '#fff'}" stroke="${hot ? C.green : C.grid}" stroke-width="1.4"/>` + Th(112, 301, '① 2 vai: 12,0 cm', { s: 12.5, c: C.redD }) + Th(271, 301, '② nách + vai: 9,5 cm', { s: 12.5, c: C.green });
+    o += `<rect id="hl-quet-nguc" x="${hot ? 186 : 38}" y="38" width="154" height="236" rx="14" fill="none" stroke="${hot ? C.green : C.amber}" stroke-width="2.6" stroke-dasharray="${hot ? '' : '5 4'}" class="pulse"/>`;
+    o += `<rect x="42" y="284" width="140" height="26" rx="13" fill="${hot ? '#fff' : '#ffd0d8'}" stroke="${hot ? C.grid : C.red}" stroke-width="1.4"/><rect id="hl-ha-vai" x="194" y="284" width="154" height="26" rx="13" fill="${hot ? C.mint : '#fff'}" stroke="${hot ? C.green : C.grid}" stroke-width="1.4"/>` + Th(112, 301, '① 2 vai: 12,0 cm', { s: 12.5, c: C.redD }) + Th(271, 301, '② nách + vai: 9,5 cm', { s: 12.5, c: C.green });
     o += card(372, 20, 178, 310) + T(461, 42, 'Nhìn từ dưới lên', { s: 12, c: C.mute }) + R.svg;
     o += `<rect x="388" y="222" width="146" height="52" rx="12" fill="${R.ok ? C.mint : '#ffd0d8'}"/>` + T(461, 244, 'Đường kính vai', { s: 12, c: C.mute }) + T(461, 263, `${dk} cm (${R.ok ? '✓ LỌT' : '✗ KẸT'})`, { s: 15, c: R.ok ? C.green : C.redD });
     o += T(461, 292, R.ok ? 'giảm 2,5 cm' : 'chưa hạ tay sau', { s: 12.5, c: R.ok ? C.green : C.mute }) + (R.ok ? T(461, 308, 'vai trước trượt lọt!', { s: 12.5, c: C.green }) : '');

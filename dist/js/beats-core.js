@@ -81,5 +81,126 @@ const tfKit = (name, cards, sayDone, sayStart, OPT = {}) => {
       return good(r, i) ? ['wow', 'Chuẩn rồi! 🎉 Đọc **lý do** trên thẻ rồi qua **Câu tiếp**.'] : ['ouch', 'Chưa đúng — đọc **lý do** trên thẻ rồi qua **Câu tiếp** nha.']; }
   });
 };
-ZS.BK = { I, Th, card, pic, tintPic, sitPic, scrub, drag, tap, call, tcard, pcard, lockIcon, flow, rbcFlow, heart, drops, vital, verdict, seen, markSeen, tfKit };
+// bình chứa / bù dịch / bồn máu (pct 0–100)
+const tank = (x, y, w, h, pct, col = '#e5484d', lab = '', prevPct = null) => {
+  const p = Math.max(0, Math.min(100, pct)), fh = (h - 8) * p / 100, fy = y + h - 4 - fh;
+  const twH = prevPct != null ? ZS.tw('height', (h - 8) * prevPct / 100, fh, 0.4) : '';
+  const twY = prevPct != null ? ZS.tw('y', y + h - 4 - (h - 8) * prevPct / 100, fy, 0.4) : '';
+  return `<g><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="12" fill="#fff" stroke="${C.grid}" stroke-width="1.6"/>` +
+  `<rect x="${x + 4}" y="${fy}" width="${w - 8}" height="${fh}" rx="8" fill="${col}" fill-opacity=".75" stroke="${col}" stroke-width="1">${twH}${twY}</rect>` +
+  (lab ? T(x + w / 2, y + h + 18, lab, { s: 12.5, c: C.mute }) : '') +
+  T(x + w / 2, y - 6, Math.round(p) + '%', { s: 13, c: col }) + `</g>`;
+};
+// cán cân bập bênh (deg góc nghiêng)
+const scale = (cx, cy, w, deg, leftLab, rightLab, pdeg = null) => {
+  const hw = w / 2, twR = pdeg != null ? ZS.twRot(pdeg, deg, cx, cy, 0.4) : `transform="rotate(${deg} ${cx} ${cy})"`;
+  return `<g><path d="M${cx} ${cy} L${cx - 16} ${cy + 36} H${cx + 16} Z" fill="#e2d9ee" stroke="${C.grid}" stroke-width="1.2"/>` +
+  `<circle cx="${cx}" cy="${cy}" r="4" fill="${C.ink}"/>` +
+  `<g ${twR}><line x1="${cx - hw}" y1="${cy}" x2="${cx + hw}" y2="${cy}" stroke="${C.ink}" stroke-width="3" stroke-linecap="round"/>` +
+  `<line x1="${cx - hw}" y1="${cy}" x2="${cx - hw}" y2="${cy + 20}" stroke="${C.grid}" stroke-width="1.2"/>` +
+  `<path d="M${cx - hw - 20} ${cy + 20} Q${cx - hw} ${cy + 32} ${cx - hw + 20} ${cy + 20} Z" fill="#fff" stroke="${C.grid}" stroke-width="1.2"/>` +
+  `<line x1="${cx + hw}" y1="${cy}" x2="${cx + hw}" y2="${cy + 20}" stroke="${C.grid}" stroke-width="1.2"/>` +
+  `<path d="M${cx + hw - 20} ${cy + 20} Q${cx + hw} ${cy + 32} ${cx + hw + 20} ${cy + 20} Z" fill="#fff" stroke="${C.grid}" stroke-width="1.2"/>` +
+  Th(cx - hw, cy + 42, leftLab, { s: 12.5 }) +
+  Th(cx + hw, cy + 42, rightLab, { s: 12.5 }) + `</g></g>`;
+};
+// lớp giải phẫu bóc tách lộ lớp sâu
+const peel = (set, x, y, w, h, open, lab, col = C.mint) => {
+  const dx = open ? w * 0.72 : 0;
+  return `<g class="tap" data-set="${set}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="14" fill="${col}" stroke="${C.grid}" stroke-width="1.2"/>` +
+  `<g transform="translate(${dx} 0)"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="14" fill="#fff" stroke="${C.soft}" stroke-width="1.4" fill-opacity=".95"/>` +
+  T(x + w / 2, y + h / 2 + 5, open ? '📖 ' + lab : '👉 ' + lab + ' (chạm mở)', { s: 13, c: C.ink }) + `</g></g>`;
+};
+// sóng co thắt / khử cực
+const wave = (d, col = '#e5484d', dur = 2, w = 3) => `<path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" stroke-linecap="round" stroke-dasharray="8 8"><animate attributeName="stroke-dashoffset" from="0" to="-32" dur="${dur}s" repeatCount="indefinite"/></path>`;
+
+// đồng hồ đo bán nguyệt (Gauge) với các dải màu (zones: [[min, max, col], ...])
+const gauge = (cx, cy, r, val, min, max, zones, label = '', opt = {}) => {
+  const norm = Math.max(min, Math.min(max, val));
+  const ang = -180 + ((norm - min) / (max - min)) * 180;
+  const toRad = a => a * Math.PI / 180;
+  let o = `<g id="${opt.id || 'hl-gauge'}"><path d="M${cx - r} ${cy} A${r} ${r} 0 0 1 ${cx + r} ${cy}" fill="none" stroke="${C.grid}" stroke-width="${opt.sw || 16}" stroke-linecap="round"/>`;
+  if (zones && zones.length) {
+    zones.forEach(([z1, z2, zcol]) => {
+      const a1 = -180 + ((Math.max(min, z1) - min) / (max - min)) * 180;
+      const a2 = -180 + ((Math.min(max, z2) - min) / (max - min)) * 180;
+      const x1 = cx + r * Math.cos(toRad(a1)), y1 = cy + r * Math.sin(toRad(a1));
+      const x2 = cx + r * Math.cos(toRad(a2)), y2 = cy + r * Math.sin(toRad(a2));
+      const large = (a2 - a1) > 180 ? 1 : 0;
+      o += `<path d="M${x1} ${y1} A${r} ${r} 0 ${large} 1 ${x2} ${y2}" fill="none" stroke="${zcol}" stroke-width="${opt.sw || 16}"/>`;
+    });
+  }
+  const na = toRad(ang), nx = cx + (r - 10) * Math.cos(na), ny = cy + (r - 10) * Math.sin(na);
+  o += `<line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="${C.ink}" stroke-width="3.2" stroke-linecap="round"/>`;
+  o += `<circle cx="${cx}" cy="${cy}" r="7" fill="${C.ink}" stroke="#fff" stroke-width="2"/>`;
+  o += T(cx, cy + 24, `${typeof val === 'number' ? val.toFixed(opt.digits != null ? opt.digits : 2) : val} ${opt.unit || ''}`, { s: opt.valSize || 18, c: opt.valCol || C.ink });
+  if (label) o += T(cx, cy + 42, label, { s: 12, c: C.mute });
+  o += `</g>`;
+  return o;
+};
+
+// biểu đồ CTG sản khoa (Cardiotocography): nhịp tim thai FHR + Cơn co tử cung UC
+const ctg = (x, y, w, h, fhrType = 'normal', ucType = 'normal', opt = {}) => {
+  const fhrH = h * 0.62, ucH = h * 0.30, gap = h * 0.08;
+  const ucY = y + fhrH + gap;
+  let o = `<g id="${opt.id || 'hl-ctg'}"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="10" fill="#fffdfa" stroke="${C.grid}" stroke-width="1.4"/>`;
+  for (let gy = y + 15; gy < y + fhrH; gy += fhrH / 4) o += `<line x1="${x}" y1="${gy}" x2="${x + w}" y2="${gy}" stroke="#fee2e2" stroke-width="1" stroke-dasharray="2 3"/>`;
+  for (let gx = x + 30; gx < x + w; gx += 40) o += `<line x1="${gx}" y1="${y}" x2="${gx}" y2="${y + h}" stroke="#fee2e2" stroke-width="1" stroke-dasharray="2 3"/>`;
+  const normY1 = y + fhrH * (200 - 160) / (200 - 60), normY2 = y + fhrH * (200 - 110) / (200 - 60);
+  o += `<rect x="${x}" y="${normY1}" width="${w}" height="${normY2 - normY1}" fill="#f0fdf4" opacity=".6"/>`;
+  o += T(x + 24, normY1 + 12, '160', { s: 9, c: '#15803d' }) + T(x + 24, normY2 - 4, '110', { s: 9, c: '#15803d' });
+  let fhrPath = '';
+  if (fhrType === 'normal') {
+    fhrPath = `M${x + 30} ${y + fhrH * .45} Q${x + 60} ${y + fhrH * .40} ${x + 90} ${y + fhrH * .48} T${x + 150} ${y + fhrH * .43} T${x + 210} ${y + fhrH * .46} T${x + 270} ${y + fhrH * .42} T${x + 330} ${y + fhrH * .47}`;
+  } else if (fhrType === 'late') {
+    fhrPath = `M${x + 30} ${y + fhrH * .45} L${x + 90} ${y + fhrH * .45} Q${x + 130} ${y + fhrH * .45} ${x + 160} ${y + fhrH * .78} Q${x + 190} ${y + fhrH * .82} ${x + 220} ${y + fhrH * .48} L${x + 330} ${y + fhrH * .46}`;
+  } else {
+    fhrPath = `M${x + 30} ${y + fhrH * .46} L${x + 80} ${y + fhrH * .48} Q${x + 110} ${y + fhrH * .85} ${x + 140} ${y + fhrH * .88} L${x + 330} ${y + fhrH * .88}`;
+  }
+  o += `<path d="${fhrPath}" fill="none" stroke="${fhrType === 'normal' ? '#15803d' : '#dc2626'}" stroke-width="2.6" stroke-linecap="round"/>`;
+  o += T(x + w - 46, y + 20, fhrType === 'brady' ? '📉 80 bpm' : fhrType === 'late' ? '⚠️ Late Decel' : '✓ 140 bpm', { s: 11, c: fhrType === 'normal' ? '#15803d' : '#dc2626' });
+
+  let ucPath = '';
+  if (ucType === 'normal') {
+    ucPath = `M${x + 30} ${ucY + ucH - 4} Q${x + 80} ${ucY + ucH - 4} ${x + 110} ${ucY + 6} Q${x + 140} ${ucY + ucH - 4} ${x + 200} ${ucY + ucH - 4} Q${x + 230} ${ucY + 8} ${x + 260} ${ucY + ucH - 4} L${x + 330} ${ucY + ucH - 4}`;
+  } else {
+    ucPath = `M${x + 30} ${ucY + ucH * .4} Q${x + 60} ${ucY + 4} ${x + 90} ${ucY + ucH * .35} Q${x + 120} ${ucY + 2} ${x + 160} ${ucY + ucH * .3} Q${x + 200} ${ucY + 4} ${x + 240} ${ucY + ucH * .32} L${x + 330} ${ucY + ucH * .3}`;
+  }
+  o += `<path d="${ucPath}" fill="none" stroke="#b45309" stroke-width="2.4" stroke-linecap="round"/>`;
+  o += T(x + w - 46, ucY + 18, ucType === 'tetany' ? '🔥 Tăng trương lực' : 'Cơn gò (UC)', { s: 10.5, c: '#b45309' });
+  o += `</g>`;
+  return o;
+};
+
+// bóng chèn buồng tử cung Bakri
+const balloon = (cx, cy, vol, maxVol = 500, opt = {}) => {
+  const f = Math.max(0, Math.min(1, vol / maxVol));
+  const rx = 24 + 54 * f, ry = 30 + 68 * f;
+  const col = opt.leak ? '#ef4444' : '#38bdf8';
+  let o = `<g id="${opt.id || 'hl-bakri'}">`;
+  o += `<path d="M${cx - 95} ${cy + 110} C${cx - 90} ${cy - 80} ${cx - 50} ${cy - 110} ${cx} ${cy - 110} C${cx + 50} ${cy - 110} ${cx + 90} ${cy - 80} ${cx + 95} ${cy + 110} Z" fill="#ffe4e6" stroke="#f43f5e" stroke-width="2.5" opacity=".6"/>`;
+  o += `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${col}" fill-opacity="${.35 + .4 * f}" stroke="${col}" stroke-width="2.2"/>`;
+  if (vol >= 200) {
+    o += `<path d="M${cx - rx + 10} ${cy} L${cx - rx - 10} ${cy}" stroke="#0284c7" stroke-width="2.5"/>`;
+    o += `<path d="M${cx + rx - 10} ${cy} L${cx + rx + 10} ${cy}" stroke="#0284c7" stroke-width="2.5"/>`;
+    o += `<path d="M${cx} ${cy - ry + 10} L${cx} ${cy - ry - 10}" stroke="#0284c7" stroke-width="2.5"/>`;
+  }
+  o += `<line x1="${cx}" x2="${cx}" y1="${cy + ry}" y2="${cy + 135}" stroke="#94a3b8" stroke-width="6" stroke-linecap="round"/>`;
+  o += T(cx, cy + 6, `${vol} mL`, { s: 15, c: '#0f172a' });
+  o += T(cx, cy + 24, vol < 250 ? 'Chưa đủ ép' : vol <= 500 ? 'Áp lực ép đạt' : 'Quá căng', { s: 11, c: '#0369a1' });
+  o += `</g>`;
+  return o;
+};
+
+// nhịp tim đập trực quan (Pulse rhythm)
+const pulseRhythm = (cx, cy, r, bpm, col = '#ef4444', label = '') => {
+  const dur = (60 / Math.max(40, bpm)).toFixed(2);
+  return `<g><circle cx="${cx}" cy="${cy}" r="${r}" fill="${col}" opacity=".2"><animate attributeName="r" values="${r};${r * 1.35};${r}" dur="${dur}s" repeatCount="indefinite"/><animate attributeName="opacity" values=".35;.05;.35" dur="${dur}s" repeatCount="indefinite"/></circle>` +
+  `<circle cx="${cx}" cy="${cy}" r="${r * .75}" fill="${col}" stroke="#fff" stroke-width="2"/>` +
+  `<text x="${cx}" y="${cy + 5}" text-anchor="middle" font-size="${r * .6}" fill="#fff" font-family="Outfit, sans-serif" font-weight="800">💓</text>` +
+  T(cx, cy + r + 18, `${bpm} l/p`, { s: 13, c: col }) +
+  (label ? T(cx, cy + r + 32, label, { s: 11, c: C.mute }) : '') + `</g>`;
+};
+
+ZS.BK = { I, Th, card, pic, tintPic, sitPic, scrub, drag, tap, call, tcard, pcard, lockIcon, flow, rbcFlow, heart, drops, vital, verdict, seen, markSeen, tfKit, tank, scale, peel, wave, gauge, ctg, balloon, pulseRhythm };
 })();

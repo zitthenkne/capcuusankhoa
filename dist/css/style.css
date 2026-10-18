@@ -603,3 +603,260 @@ dialog::backdrop{background:rgba(74,63,99,.38)}
 .o-rubric-item-txt{font-size:13px;font-weight:700;line-height:1.35;color:#1e293b}
 .o-rubric-item-pts{font:800 11px var(--disp);color:#0284c7;background:#e0f2fe;padding:1px 6px;border-radius:6px;width:fit-content}
 
+/* ───── KỸ NĂNG MỚI: SỔ TAY Y KHOA (ASK, CHAIN HIGHLIGHT 2 CHIỀU, CLIN, TRAP, XEM) ───── */
+.hl-on {
+  outline: 3px solid var(--c-d) !important;
+  outline-offset: 4px !important;
+  filter: drop-shadow(0 0 10px rgba(224,80,111,.85)) !important;
+  animation: hlPulse 1.2s infinite alternate !important;
+}
+@keyframes hlPulse {
+  from { transform: scale(.99); }
+  to { transform: scale(1.02); }
+}
+.chain .cn[data-hl] { cursor: pointer; transition: transform .18s cubic-bezier(.3,1.8,.5,1), box-shadow .2s; }
+.chain .cn[data-hl]:hover { transform: translateX(3px); box-shadow: 0 2px 8px rgba(74,63,99,.12); }
+.chain .cn.cn-hover {
+  transform: translateX(5px) scale(1.02) !important;
+  box-shadow: 0 4px 14px rgba(224,80,111,.25) !important;
+  border-left: 4px solid var(--c-d) !important;
+}
+.chain .cn.pending { opacity: .55; background: #faf8fd !important; border: 1.2px dashed #ded5ee !important; }
+.chain .cn.pending .lk-text { font-size: 12px; color: var(--muted); font-style: italic; }
+
+/* Thẻ Dự đoán (ask) */
+.ask-wrap {
+  background: linear-gradient(135deg, #fff 0%, #fbf9ff 100%);
+  border: 1.4px solid var(--lav-d);
+  border-radius: 18px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  box-shadow: 0 2px 10px rgba(74,63,99,.06);
+}
+.ask-q { font-weight: 700; font-size: 13.5px; margin-bottom: 7px; color: var(--ink); }
+.ask-opts { display: flex; gap: 7px; flex-wrap: wrap; }
+.ask-btn {
+  padding: 6px 14px;
+  border-radius: 99px;
+  background: #fff;
+  border: 1.2px solid var(--lav-d);
+  font: 700 13px var(--disp);
+  color: var(--ink);
+  cursor: pointer;
+  transition: all .15s cubic-bezier(.3,1.8,.5,1);
+}
+.ask-btn:hover { background: var(--lav); transform: translateY(-1.5px); }
+.ask-btn.cur { background: var(--lav-d); color: #fff; border-color: var(--lav-d); box-shadow: 0 2px 8px rgba(109,40,217,.25); }
+.ask-fb {
+  margin-top: 7px; font-size: 12.5px; font-weight: 600; padding: 5px 10px;
+  border-radius: 10px; background: #f5f3ff; color: #4c1d95; line-height: 1.4;
+}
+.ask-fb.ok { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+.ask-fb.no { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+
+/* Hộp Lâm sàng (clin), Bẫy (trap), Ghi chú dán (note) */
+.clin-box {
+  display: flex; gap: 8px; align-items: flex-start;
+  background: #f0fdf4; border: 1.3px solid #86efac; border-radius: 14px;
+  padding: 8px 12px; font-size: 12.5px; font-weight: 600; line-height: 1.45; color: #166534;
+  margin-top: 6px; box-shadow: 0 1px 6px rgba(22,101,52,.05);
+}
+.clin-box b { color: #14532d; font-family: var(--disp); font-size: 13px; }
+.clin-ic { font-size: 16px; flex: none; }
+
+.trap-box {
+  display: flex; gap: 8px; align-items: flex-start;
+  background: #fef2f2; border: 1.3px solid #fca5a5; border-radius: 14px;
+  padding: 8px 12px; font-size: 12.5px; font-weight: 600; line-height: 1.45; color: #991b1b;
+  margin-top: 6px; box-shadow: 0 1px 6px rgba(153,27,27,.05);
+}
+.trap-box b { color: #7f1d1d; font-family: var(--disp); font-size: 13px; }
+.trap-ic { font-size: 16px; flex: none; }
+
+.note-box {
+  display: flex; gap: 8px; align-items: flex-start;
+  background: #fffbeb; border: 1.3px solid #fde68a; border-radius: 14px;
+  padding: 8px 12px; font-size: 12.5px; font-weight: 600; line-height: 1.45; color: #854d0e;
+  margin-top: 6px; box-shadow: 0 1px 6px rgba(133,77,14,.05);
+}
+.note-box b { color: #713f12; font-family: var(--disp); font-size: 13px; }
+.note-ic { font-size: 16px; flex: none; }
+
+/* Thanh điều khiển Chế độ Xem (mode: 'xem') */
+.xem-bar {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  background: #fff; border: 1.3px solid var(--c-d); border-radius: 16px;
+  padding: 6px 10px; box-shadow: 0 2px 8px rgba(74,63,99,.06);
+}
+.xem-btn {
+  padding: 4px 12px; border-radius: 99px; background: #fff;
+  border: 1.2px solid var(--lav-d); font: 700 13px var(--disp); color: var(--ink);
+  cursor: pointer; transition: all .15s cubic-bezier(.3,1.8,.5,1);
+}
+.xem-btn:hover:not([disabled]) { background: var(--lav); transform: translateY(-1px); }
+.xem-btn.primary { background: var(--c-d); color: #fff; border-color: var(--c-d); }
+.xem-steps { display: flex; gap: 5px; margin-left: auto; }
+.xem-dot {
+  width: 24px; height: 24px; border-radius: 50%; border: 1.2px solid var(--c-d);
+  background: #fff; font: 800 11.5px var(--disp); cursor: pointer; display: grid; place-items: center;
+  transition: all .15s;
+}
+.xem-dot.cur { background: var(--c-d); color: #fff; transform: scale(1.1); }
+.xem-dot.done { background: var(--mint-d); color: #fff; border-color: var(--mint-d); }
+
+/* ───── CHẾ ĐỘ TRỰC ĐÊM LÂM SÀNG (NIGHT-DUTY DARK MODE) ───── */
+body.night-mode {
+  --bg: #090d16;
+  --bg-sub: #131b2e;
+  --ink: #f1f5f9;
+  --muted: #94a3b8;
+  --soft: #1e293b;
+  --card: #141e33;
+  --grid: #334155;
+  --c-d: #f43f5e;
+  --pink: #2a1526;
+  --mint: #0f2e24;
+  --peach: #2e1e12;
+  --lav: #201838;
+  --sky: #0e283d;
+  --butter: #2e2610;
+  background: #090d16 !important;
+  color: #f1f5f9 !important;
+}
+body.night-mode .topbar,
+body.night-mode .botbar,
+body.night-mode .fig,
+body.night-mode .bside,
+body.night-mode .task,
+body.night-mode .o-hero,
+body.night-mode .st-card,
+body.night-mode .o-script-card,
+body.night-mode .ask-wrap,
+body.night-mode .xem-bar,
+body.night-mode dialog {
+  background: #141e33 !important;
+  color: #f1f5f9 !important;
+  border-color: #334155 !important;
+}
+body.night-mode .st-body b,
+body.night-mode .ask-q,
+body.night-mode .ttl mark,
+body.night-mode h1, body.night-mode h2, body.night-mode h3 {
+  color: #f8fafc !important;
+}
+body.night-mode .ask-btn {
+  background: #1e293b !important;
+  color: #cbd5e1 !important;
+  border-color: #475569 !important;
+}
+body.night-mode .ask-btn.cur {
+  background: #e11d48 !important;
+  color: #fff !important;
+}
+body.night-mode .cn {
+  background: #1b263b !important;
+  border-color: #334155 !important;
+  color: #f1f5f9 !important;
+}
+body.night-mode .cn.pending {
+  background: #0d1527 !important;
+  border-color: #1e293b !important;
+}
+body.night-mode #search-input {
+  background: #1e293b !important;
+  color: #f8fafc !important;
+  border-color: #475569 !important;
+}
+body.night-mode .clin-box { background: #064e3b !important; border-color: #059669 !important; color: #a7f3d0 !important; }
+body.night-mode .clin-box b { color: #6ee7b7 !important; }
+body.night-mode .trap-box { background: #450a0a !important; border-color: #dc2626 !important; color: #fecaca !important; }
+body.night-mode .trap-box b { color: #fca5a5 !important; }
+body.night-mode .note-box { background: #451a03 !important; border-color: #d97706 !important; color: #fde68a !important; }
+
+/* ───── OSCE LIVE EXAM STOPWATCH & PACING HUD ───── */
+.o-exam-hud {
+  display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;
+  background: linear-gradient(135deg, #1e1b4b 0%, #31104b 100%);
+  color: #fff; padding: 12px 18px; border-radius: 20px; margin-bottom: 14px;
+  box-shadow: 0 4px 18px rgba(30,27,75,.25); border: 1.5px solid #6366f1;
+}
+.o-exam-clock {
+  font: 800 28px var(--disp); letter-spacing: 1.5px; color: #38bdf8;
+  display: flex; align-items: center; gap: 8px;
+}
+.o-exam-clock.warn { color: #f87171 !important; animation: hlPulse .8s infinite alternate; }
+.o-exam-ctrls { display: flex; gap: 8px; align-items: center; }
+.o-exam-btn {
+  padding: 6px 14px; border-radius: 99px; border: none; font: 700 13px var(--disp);
+  cursor: pointer; transition: all .15s cubic-bezier(.3,1.8,.5,1);
+}
+.o-exam-btn.play { background: #22c55e; color: #fff; }
+.o-exam-btn.pause { background: #f59e0b; color: #fff; }
+.o-exam-btn.reset { background: #475569; color: #fff; }
+.o-exam-btn:hover { transform: scale(1.05); }
+
+/* ───── CÂU HỎI VẶN CỦA GIÁM KHẢO & PHẢN ỨNG NGƯỜI BỆNH ───── */
+.o-interact-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin: 14px 0; }
+.o-tough-card {
+  background: #fff; border: 1.4px solid #f87171; border-radius: 18px; padding: 14px 16px;
+  box-shadow: 0 2px 10px rgba(220,38,38,.06);
+}
+.o-tough-head { display: flex; align-items: center; gap: 8px; font: 800 14px var(--disp); color: #991b1b; margin-bottom: 8px; }
+.o-tough-q { font-size: 13px; font-weight: 700; color: #1e293b; line-height: 1.45; margin-bottom: 8px; }
+.o-tough-ans {
+  background: #fef2f2; border-left: 3.5px solid #dc2626; padding: 8px 12px; border-radius: 8px;
+  font-size: 12.5px; color: #7f1d1d; line-height: 1.45;
+}
+.o-patient-card {
+  background: #fff; border: 1.4px solid #a855f7; border-radius: 18px; padding: 14px 16px;
+  box-shadow: 0 2px 10px rgba(168,85,247,.06);
+}
+.o-patient-head { display: flex; align-items: center; gap: 8px; font: 800 14px var(--disp); color: #6b21a8; margin-bottom: 8px; }
+.o-patient-quote {
+  font-style: italic; font-size: 13px; font-weight: 600; color: #4c1d95; line-height: 1.45;
+  background: #faf5ff; padding: 8px 12px; border-radius: 10px; margin-bottom: 8px;
+}
+.o-patient-reply { font-size: 12.5px; color: #15803d; line-height: 1.45; font-weight: 600; }
+
+/* ───── BẢNG CHẤM ĐIỂM RUBRIC 10 ĐIỂM UMP ───── */
+.o-score-card {
+  background: #fff; border: 1.4px solid var(--c-d); border-radius: 20px; padding: 16px 20px;
+  margin: 14px 0; box-shadow: 0 4px 14px rgba(74,63,99,.08);
+}
+.o-score-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.o-score-num { font: 800 24px var(--disp); color: var(--c-d); }
+.o-score-badge {
+  padding: 4px 12px; border-radius: 99px; font: 800 12.5px var(--disp);
+}
+.o-score-badge.pass { background: #dcfce7; color: #15803d; border: 1px solid #86efac; }
+.o-score-badge.fail { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+.o-pillar-row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; padding: 6px 0; border-bottom: 1px dashed #e2e8f0; }
+
+/* ───── TRANG ĐỐI CHIẾU LÂM SÀNG (COMPARATOR #/sosanh) ───── */
+.compare-hero {
+  background: linear-gradient(135deg, #fdf4ff 0%, #ede9fe 100%);
+  padding: 24px; border-radius: 24px; margin-bottom: 18px; border: 1.4px solid var(--lav-d);
+}
+.compare-hero h1 { font: 800 24px var(--disp); color: var(--ink); margin-bottom: 6px; }
+.compare-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; margin-top: 14px; }
+.compare-box {
+  background: #fff; border: 1.4px solid var(--c-d); border-radius: 20px; overflow: hidden;
+  box-shadow: 0 3px 12px rgba(74,63,99,.06);
+}
+.compare-title {
+  padding: 12px 16px; font: 800 15px var(--disp); color: #fff; display: flex; align-items: center; justify-content: space-between;
+}
+.compare-body { padding: 14px 16px; font-size: 13px; line-height: 1.5; }
+.compare-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f1f5f9; gap: 10px; }
+.compare-row b { color: var(--ink); flex: none; width: 110px; }
+
+/* ───── CHIP TÌM KIẾM SIÊU TỐC ───── */
+.search-chips { display: flex; gap: 7px; flex-wrap: wrap; margin: 10px 0 14px; }
+.search-chip {
+  padding: 5px 12px; border-radius: 99px; background: #f1f5f9; border: 1px solid #cbd5e1;
+  font: 700 12px var(--disp); color: #334155; cursor: pointer; transition: all .15s;
+}
+.search-chip:hover, .search-chip.active { background: var(--c-d); color: #fff; border-color: var(--c-d); }
+
+
+

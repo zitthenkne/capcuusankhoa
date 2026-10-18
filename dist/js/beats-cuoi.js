@@ -8,7 +8,7 @@ const EZ = 'calcMode="spline" keyTimes="0;1" keySplines=".25 .9 .3 1"';
 // CTG: bad 0–1 (nhịp chậm dần), x,y,w
 const ctg = (x, y, w, bad, o = {}) => { let p = '', u = ''; for (let i = 0; i <= 140; i++) { const t = i / 140, X = x + t * w, br = o.brady && t > o.brady ? Math.min(1, (t - o.brady) * 6) : 0, cy = br ? 0 : Math.max(0, Math.sin(t * 5 * Math.PI)) ** 2, base = 140 - 60 * br - bad * 30 * Math.max(0, Math.sin((t * 5 - .3) * Math.PI)) ** 2;
     p += `${i ? 'L' : 'M'}${X.toFixed(1)} ${(y + 64 - (base - 110) * 1.2 + Math.sin(t * 81) * 3).toFixed(1)}`; u += `${i ? 'L' : 'M'}${X.toFixed(1)} ${(y + 146 - cy * 34).toFixed(1)}`; }
-  return `<rect x="${x}" y="${y}" width="${w}" height="156" rx="8" fill="#fff6f0" stroke="#f3d3c4"/><rect x="${x}" y="${y + 64 - 50 * 1.2}" width="${w}" height="${50 * 1.2}" fill="${C.mint}" opacity=".3"/><path d="${p}" fill="none" stroke="${bad || o.brady ? C.red : '#2a2a3a'}" stroke-width="1.8"/><path d="${u}" fill="none" stroke="${C.cap}" stroke-width="1.6"/>`; };
+  return `<rect x="${x}" y="${y}" width="${w}" height="156" rx="8" fill="#fff6f0" stroke="#f3d3c4"/><rect x="${x}" y="${y + 64 - 50 * 1.2}" width="${w}" height="${50 * 1.2}" fill="${C.mint}" opacity=".3"/><path id="hl-ctg-fhr" d="${p}" fill="none" stroke="${bad || o.brady ? C.red : '#2a2a3a'}" stroke-width="1.8"/><path id="hl-ctg-tone" d="${u}" fill="none" stroke="${C.cap}" stroke-width="1.6"/>`; };
 // tử cung chuyển dạ: thân dày, đoạn dưới mỏng dần; r = vị trí vòng Bandl (0–1); vo: 'nut' | 'vo'
 const LU = (x, y, r, vo = '') => {
   const ring = y + 205 - 72 * r, thin = Math.max(4, 18 - 14 * r);
@@ -40,20 +40,35 @@ const LU = (x, y, r, vo = '') => {
   }
   // Nứt sẹo (dehiscence): cơ nứt ngang, thanh mạc còn nguyên phủ bên ngoài
   if (vo === 'nut') {
-    s += `<g class="fadein"><path d="M${x + 60} ${y + 224} Q${x + 86} ${y + 234} ${x + 72} ${y + 254}" fill="none" stroke="${C.redD}" stroke-width="3.2" stroke-dasharray="5 3"/><ellipse cx="${x + 80}" cy="${y + 240}" rx="16" ry="12" fill="url(#gClot)" opacity=".65"/><path d="M${x + 90} ${ring + 4} Q${x + 98} ${y + 258} ${x + 28} ${y + 284}" fill="none" stroke="${C.decid}" stroke-width="2.5" opacity=".9"/></g>`;
+    s += `<g id="hl-dehiscence" class="fadein"><path d="${x + 60} ${y + 224} Q${x + 86} ${y + 234} ${x + 72} ${y + 254}" fill="none" stroke="${C.redD}" stroke-width="3.2" stroke-dasharray="5 3"/><ellipse cx="${x + 80}" cy="${y + 240}" rx="16" ry="12" fill="url(#gClot)" opacity=".65"/><path d="${x + 90} ${ring + 4} Q${x + 98} ${y + 258} ${x + 28} ${y + 284}" fill="none" stroke="${C.decid}" stroke-width="2.5" opacity=".9"/></g>`;
   }
   // Vỡ toàn bộ bề dày (complete rupture): toác rách toang, máu xối xả, đầu thai lọt ra ổ bụng
   if (vo === 'vo') {
-    s += `<g class="fadein"><path d="M${x + 58} ${y + 204} L${x + 120} ${y + 230} L${x + 64} ${y + 268} Z" fill="#6a1220"/><path d="M${x + 54} ${y + 198} L${x + 126} ${y + 228} L${x + 60} ${y + 274}" fill="none" stroke="${C.redD}" stroke-width="3.5" stroke-linejoin="round"/>`;
+    s += `<g id="hl-rupture" class="fadein"><path d="${x + 58} ${y + 204} L${x + 120} ${y + 230} L${x + 64} ${y + 268} Z" fill="#6a1220"/><path d="${x + 54} ${y + 198} L${x + 126} ${y + 228} L${x + 60} ${y + 274}" fill="none" stroke="${C.redD}" stroke-width="3.5" stroke-linejoin="round"/>`;
     // Đầu thai lọt một phần ra ngoài phúc mạc
     s += `<ellipse cx="${x + 104}" cy="${y + 242}" rx="42" ry="46" fill="url(#gSkin)" stroke="${C.red}" stroke-width="2.4" class="pulse"/>`;
     // Máu xối xả tràn khoang bụng
-    s += `<ellipse cx="${x + 130}" cy="${y + 260}" rx="40" ry="26" fill="${C.red}" opacity=".8"/><path d="M${x + 80} ${y + 250} Q${x + 130} ${y + 280} ${x + 150} ${y + 270}" fill="none" stroke="${C.redD}" stroke-width="4"/>${drops(x + 126, y + 275, 4, .9, 14)}</g>`;
+    s += `<g id="hl-hemoperitoneum"><ellipse cx="${x + 130}" cy="${y + 260}" rx="40" ry="26" fill="${C.red}" opacity=".8"/><path d="M${x + 80} ${y + 250} Q${x + 130} ${y + 280} ${x + 150} ${y + 270}" fill="none" stroke="${C.redD}" stroke-width="4"/>${drops(x + 126, y + 275, 4, .9, 14)}</g></g>`;
   }
   return s; };
 
 // ═════════ 06 · Nứt cơ và vỡ toàn bộ bề dày
 kit('bv-nut', {
+  ask: {
+    q: 'Trong chuyển dạ có sẹo mổ cũ (TOLAC), biến chứng nào có biểu hiện âm thầm nhất nhưng rất dễ bị bỏ sót?',
+    opts: [
+      { t: 'Nứt sẹo (Dehiscence): rách lớp cơ nhưng thanh mạc còn nguyên, triệu chứng kín đáo', ok: true, fb: 'Chính xác! Nứt sẹo thường kín đáo, phúc mạc bao bọc nên ít gây đau dữ dội hay tràn máu ổ bụng.' },
+      { t: 'Vỡ hoàn toàn: rách toang cơ và thanh mạc, triệu chứng luôn dữ dội', ok: false, fb: 'Sai. Vỡ hoàn toàn gây sốc mất máu rầm rộ chứ không âm thầm.' },
+      { t: 'Sa dây rốn ra âm đạo', ok: false, fb: 'Sai hoàn toàn. Sa dây rốn là biến chứng ối vỡ, không phải tổn thương sẹo tử cung.' }
+    ]
+  },
+  chain: [
+    { hl: '#hl-dehiscence', h: 'Nứt sẹo mổ cũ', b: 'Lớp cơ đoạn dưới tách đôi nhưng lớp phúc mạc thanh mạc bên ngoài vẫn còn nguyên' },
+    { hl: '#hl-rupture', h: 'Vỡ toàn bộ bề dày', b: 'Cơ và thanh mạc toác rách toang, buồng ối vỡ khiến thai lọt một phần vào ổ bụng' },
+    { hl: '#hl-hemoperitoneum', h: 'Tràn máu ổ phúc mạc', b: 'Máu xối xả vào khoang bụng gây sốc mất máu kín và đe dọa tử vong mẹ - con' }
+  ],
+  clin: 'Nứt sẹo (dehiscence) thường chỉ tình cờ phát hiện khi mổ lại. Ngược lại, vỡ hoàn toàn là cấp cứu tối khẩn cần phẫu thuật trong vòng 10-15 phút.',
+  trap: 'Đừng đánh giá nguy cơ chỉ bằng máu âm đạo! Vỡ hoàn toàn máu chảy kín vào ổ bụng nên máu âm đạo có thể rất ít.',
   init: () => ({ k: '', seen: '' }), ui: () => [{ t: 'seg', k: 'k', opts: [['nut', '🩹 Nứt sẹo (còn thanh mạc)'], ['vo', '💥 Vỡ toàn bộ bề dày']] }], after: s => markSeen(s, s.k), goal: s => seen(s, 'nut') && seen(s, 'vo'),
   draw: s => {
     let o = card(20, 20, 330, 316, '#fffdfa') + LU(185, 36, .4, s.k);
@@ -169,13 +184,28 @@ B['doa-vo'] = [
   { t: 'Ngừng tăng co, đừng ép vượt', kit: 'bv-lam' }
 ];
 kit('bv-ctg', {
+  ask: {
+    q: 'Dấu hiệu nào xuất hiện SỚM NHẤT và nhạy nhất để báo động vỡ tử cung ở thai phụ có sẹo mổ cũ đang chuyển dạ (TOLAC)?',
+    opts: [
+      { t: 'Đau bụng xé rách kèm sờ mất độ lọt ngôi thai', ok: false, fb: 'Sai. Đây là dấu hiệu muộn trong tam chứng kinh điển khi tử cung đã toác rách hoàn toàn.' },
+      { t: 'Bất thường tim thai trên CTG (nhịp chậm kéo dài, nhịp giảm biến đổi sâu lặp lại)', ok: true, fb: 'Chính xác! Bất thường tim thai xuất hiện sớm nhất ở > 70-80% các trường hợp vỡ tử cung.' },
+      { t: 'Máu âm đạo chảy ồ ạt đỏ tươi', ok: false, fb: 'Sai. Máu thường chảy kín vào ổ phúc mạc nên máu âm đạo có thể xuất hiện muộn hoặc ít.' }
+    ]
+  },
+  chain: [
+    { hl: '#hl-ctg-fhr', h: 'Tim thai suy sụp sớm', b: 'Nhịp tim thai chậm kéo dài do thiếu máu nuôi gai nhau cấp tính' },
+    { hl: '#hl-ctg-tone', h: 'Biến mất cơn co tử cung', b: 'Thành tử cung toác vỡ làm tụt áp lực trong buồng ối, mất hoàn toàn cơn gò' },
+    { hl: '#hl-ctg-signs', h: 'Chuỗi dấu hiệu lâm sàng muộn', b: 'Đau chói vết mổ, tụt huyết áp, sốc mất máu kín và mất độ lọt ngôi thai' }
+  ],
+  clin: 'Theo dõi CTG liên tục là bắt buộc trong TOLAC. Khi tim thai xuất hiện nhịp chậm kéo dài không hồi phục, phải nghĩ ngay đến vỡ tử cung và kích hoạt mổ tối khẩn.',
+  trap: 'Sản phụ đã gây tê ngoài màng cứng có thể không thấy đau khi sẹo toác. Không bao giờ chủ quan khi không thấy đau; CTG là chỉ điểm vàng duy nhất!',
   init: () => ({ t: 0 }), ui: () => [{ t: 'range', k: 't', label: '⏱ Phút sau khi sẹo vỡ', min: 0, max: 20, step: 2, unit: '′' }], goal: s => s.t >= 14,
   draw: s => {
     const f = s.t / 20;
     let o = card(20, 20, 360, 316, '#fffdfa') + T(200, 46, 'CTG — TOLAC', { s: 13, c: C.mute }) + ctg(36, 56, 328, 0, { brady: s.t ? 1 - Math.min(.9, f + .1) : 2 }) + ZS.legend(40, 230, [[s.t ? C.red : '#2a2a3a', 'tim thai'], [C.cap, 'cơn co']], { s: 11.5 });
     o += T(200, 270, s.t >= 2 ? 'tim thai chậm kéo dài · mất cơn co' : '', { s: 13, c: C.redD });
     const M = [['tim thai bất thường', 2], ['đau sẹo / đau mới', 6], ['ra huyết', 10], ['mẹ mạch nhanh, tụt HA', 14], ['mất độ lọt', 16]];
-    o += card(392, 20, 158, 316) + T(471, 46, 'xuất hiện dần', { s: 12.5, c: C.mute }) + M.map(([t, th], i) => `<g opacity="${s.t >= th ? 1 : .2}">${T(404, 80 + i * 44, (s.t >= th ? '⚠ ' : '○ ') + t, { a: 'start', s: 12, c: s.t >= th ? C.redD : C.mute })}</g>`).join('');
+    o += card(392, 20, 158, 316) + T(471, 46, 'xuất hiện dần', { s: 12.5, c: C.mute }) + `<g id="hl-ctg-signs">` + M.map(([t, th], i) => `<g opacity="${s.t >= th ? 1 : .2}">${T(404, 80 + i * 44, (s.t >= th ? '⚠ ' : '○ ') + t, { a: 'start', s: 12, c: s.t >= th ? C.redD : C.mute })}</g>`).join('') + `</g>`;
     return o;
   },
   say: s => s.t >= 14 ? ['worry', '**Tim thai bất thường** thường là dấu **đầu tiên**; đau, ra huyết, sốc, mất độ lọt đến sau. **Không chờ đủ tam chứng** mới gọi mổ.'] : ['happy', 'Kéo thanh **⏱** — dấu nào xuất hiện trước? 👆']
